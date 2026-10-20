@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Smart Campus RMS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .dashboard-container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        .card { background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; font-size: 0.9rem; }
+        th { background: #f8f9fa; color: #2c3e50; }
+        .badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+        .badge-pending { background: #fff3cd; color: #856404; }
+        .badge-approved { background: #d4edda; color: #155724; }
+        .badge-rejected { background: #f8d7da; color: #721c24; }
+        .logout-btn { background: #e74c3c; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .logout-btn:hover { background: #c0392b; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">Smart Campus RMS — Student Portal</div>
+        <div class="nav-links">
+            <span id="user-display" style="margin-right: 1.5rem; font-size: 0.9rem; color: #ecf0f1;"></span>
+            <button onclick="handleLogout()" class="logout-btn">Logout</button>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <!-- Alert Notification Box -->
+        <div id="alert-box" class="alert hidden"></div>
+
+        <div class="grid">
+            <!-- Book Resource Form (3-Tier Cascading Filter) -->
+            <section class="card">
+                <h3>Request Resource Booking</h3>
+                <p class="subtext">Select building, course, and room.</p>
+                <form id="booking-form">
+                    <div class="form-group">
+                        <label>1. Building / Block</label>
+                        <select id="building-select" required>
+                            <option value="">-- Choose Building --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>2. Course / Department</label>
+                        <select id="course-select" required disabled>
+                            <option value="">-- Choose Building First --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>3. Room Number / Facility</label>
+                        <select id="resource-select" required disabled>
+                            <option value="">-- Choose Course First --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="booking-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Time Slot</label>
+                        <select id="time-slot" required>
+                            <option value="09:00 - 11:00">09:00 AM - 11:00 AM</option>
+                            <option value="11:00 - 13:00">11:00 AM - 01:00 PM</option>
+                            <option value="14:00 - 16:00">02:00 PM - 04:00 PM</option>
+                            <option value="16:00 - 18:00">04:00 PM - 06:00 PM</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Purpose</label>
+                        <input type="text" id="booking-purpose" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Submit Request</button>
+                </form>
+            </section>
+
+            <!-- Quick Guidelines -->
+            <section class="card">
+                <h3>Campus Booking Guidelines</h3>
+                <ul style="padding-left: 1.2rem; font-size: 0.9rem; color: #555; line-height: 1.6;">
+                    <li>Classrooms have a weekday lock rule from **9:00 AM to 2:00 PM**.</li>
+                    <li>Bookings require faculty/admin approval.</li>
+                    <li>Ensure requests are submitted at least 24 hours in advance.</li>
+                    <li>Check your status table for live approval updates.</li>
+                </ul>
+            </section>
+        </div>
+
+        <!-- Active Bookings Status Table -->
+        <section class="card">
+            <h3>Your Booking Requests</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Building</th>
+                        <th>Course</th>
+                        <th>Room</th>
+                        <th>Date & Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="bookings-table-body">
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #777;">Loading your bookings...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const role = localStorage.getItem('role');
+        const userEmail = localStorage.getItem('userEmail');
+
+        if (!token || role !== 'student') {
+            window.location.href = '/';
+        } else {
+            document.getElementById('user-display').textContent = `${userEmail} (STUDENT)`;
+        }
+
+        function showAlert(message, type = 'error') {
+            const alertBox = document.getElementById('alert-box');
+            alertBox.textContent = message;
+            alertBox.className = `alert alert-${type}`;
+            alertBox.classList.remove('hidden');
+            setTimeout(() => alertBox.classList.add('hidden'), 4000);
+        }
+
+        function handleLogout() {
+            localStorage.clear();
+            window.location.href = '/';
+        }
+
+        let allResources = [];
+
+        // 1. Load Resources and populate Building dropdown
+        async function loadResources() {
+            try {
+                const res = await fetch('/api/resources', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                allResources = await res.json();
+                
+                const buildingSelect = document.getElementById('building-select');
+                const buildings = [...new Set(allResources.map(r => r.building))];
+                
+                buildingSelect.innerHTML = '<option value="">-- Choose Building --</option>';
+                buildings.forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b;
+                    opt.textContent = b;
+                    buildingSelect.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('Failed to load resources', err);
+            }
+        }
+
+        // 2. Cascading Event: Building -> Populate Courses
+        document.getElementById('building-select').addEventListener('change', (e) => {
+            const selectedBuilding = e.target.value;
+            const courseSelect = document.getElementById('course-select');
+            const resourceSelect = document.getElementById('resource-select');
+
+            // Reset child dropdowns
+            courseSelect.innerHTML = '<option value="">-- Choose Building First --</option>';
+            courseSelect.disabled = true;
+            resourceSelect.innerHTML = '<option value="">-- Choose Course First --</option>';
+            resourceSelect.disabled = true;
+
+            if (!selectedBuilding) return;
+
+            const filteredCourses = [...new Set(allResources
+                .filter(r => r.building === selectedBuilding)
+                .map(r => r.course))];
+
+            courseSelect.innerHTML = '<option value="">-- Choose Course --</option>';
+            filteredCourses.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                courseSelect.appendChild(opt);
+            });
+            courseSelect.disabled = false;
+        });
+
+        // 3. Cascading Event: Course -> Populate Rooms
+        document.getElementById('course-select').addEventListener('change', (e) => {
+            const selectedBuilding = document.getElementById('building-select').value;
+            const selectedCourse = e.target.value;
+            const resourceSelect = document.getElementById('resource-select');
+
+            resourceSelect.innerHTML = '<option value="">-- Choose Course First --</option>';
+            resourceSelect.disabled = true;
+
+            if (!selectedCourse) return;
+
+            const filteredRooms = allResources.filter(r => r.building === selectedBuilding && r.course === selectedCourse);
+
+            resourceSelect.innerHTML = '<option value="">-- Choose Room --</option>';
+            filteredRooms.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r._id;
+                opt.textContent = `${r.roomNumber} (${r.type.toUpperCase()} - Cap: ${r.capacity})`;
+                resourceSelect.appendChild(opt);
+            });
+            resourceSelect.disabled = false;
+        });
+
+        // Fetch User Bookings
+        async function loadBookings() {
+            try {
+                const res = await fetch('/api/bookings/my-bookings', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const bookings = await res.json();
+                const tbody = document.getElementById('bookings-table-body');
+
+                if (!res.ok || !Array.isArray(bookings)) {
+                    throw new Error(bookings.message || 'Could not load booking requests.');
+                }
+                
+                if (bookings.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777;">No booking requests found.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                bookings.forEach(b => {
+                    const tr = document.createElement('tr');
+                    let badgeClass = 'badge-pending';
+                    if (b.status === 'APPROVED') badgeClass = 'badge-approved';
+                    if (b.status === 'REJECTED') badgeClass = 'badge-rejected';
+
+                    tr.innerHTML = `
+                        <td>${b.resource_id ? b.resource_id.building : 'N/A'}</td>
+                        <td>${b.resource_id ? b.resource_id.course : 'N/A'}</td>
+                        <td>${b.resource_id ? b.resource_id.roomNumber : 'N/A'}</td>
+                        <td>${new Date(b.start_time).toLocaleDateString()} <br><small>${new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(b.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></td>
+                        <td><span class="badge ${badgeClass}">${b.status.toUpperCase()}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error('Failed to load bookings', err);
+                document.getElementById('bookings-table-body').innerHTML =
+                    '<tr><td colspan="5" style="text-align: center; color: #777;">Unable to load booking requests. Please refresh the page.</td></tr>';
+            }
+        }
+
+        // Handle Booking Form Submit
+        document.getElementById('booking-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resourceId = document.getElementById('resource-select').value;
+            const date = document.getElementById('booking-date').value;
+            const timeSlot = document.getElementById('time-slot').value;
+            const purpose = document.getElementById('booking-purpose').value.trim();
+            const [startTime, endTime] = timeSlot.split(' - ');
+            const startDateTime = new Date(`${date}T${startTime}:00`);
+            const endDateTime = new Date(`${date}T${endTime}:00`);
+
+            try {
+                const res = await fetch('/api/bookings', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        resource_id: resourceId,
+                        start_time: startDateTime.toISOString(),
+                        end_time: endDateTime.toISOString(),
+                        purpose
+                    })
+                });
+                const data = await res.json().catch(() => ({}));
+
+                if (res.ok) {
+                    showAlert('Booking request submitted successfully!', 'success');
+                    document.getElementById('booking-form').reset();
+                    document.getElementById('course-select').disabled = true;
+                    document.getElementById('resource-select').disabled = true;
+                    document.getElementById('course-select').innerHTML = '<option value="">-- Choose Building First --</option>';
+                    document.getElementById('resource-select').innerHTML = '<option value="">-- Choose Course First --</option>';
+                    await loadBookings();
+                } else {
+                    showAlert(data.error || data.message || `Booking failed (${res.status}).`);
+                }
+            } catch (err) {
+                console.error('Failed to submit booking request', err);
+                showAlert('Could not submit booking request. Check your connection and try again.');
+            }
+        });
+
+        // Initialize Dashboard Data
+        loadResources();
+        loadBookings();
+    </script>
+</body>
+</html>

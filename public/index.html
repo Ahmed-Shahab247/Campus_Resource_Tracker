@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Campus RMS - Auth</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">Smart Campus RMS</div>
+        <div class="nav-links">
+            <a href="#" onclick="showSection('login')">Login</a>
+            <a href="#" onclick="showSection('register')">Register</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Alert Notification -->
+        <div id="alert-box" class="alert hidden"></div>
+
+        <!-- Registration Form -->
+        <section id="register-section" class="auth-card">
+            <h2>Campus Registration</h2>
+            <p class="subtext">Role is automatically assigned based on your DSCE email format.</p>
+            <form id="register-form">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="reg-name" required placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>DSCE Institutional Email</label>
+                    <input type="email" id="reg-email" required placeholder="1ds25mc006@dsce.edu.in">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="reg-password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-primary">Register & Get OTP</button>
+            </form>
+            <p class="switch-auth">Already registered? <a href="#" onclick="showSection('verify')">Verify OTP</a> or <a href="#" onclick="showSection('login')">Login</a></p>
+        </section>
+
+        <!-- OTP Verification Form (Hidden by default) -->
+        <section id="verify-section" class="auth-card hidden">
+            <h2>Enter Verification OTP</h2>
+            <p class="subtext">A 6-digit code was sent to your terminal.</p>
+            <form id="verify-form">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="verify-email" required placeholder="1ds25mc006@dsce.edu.in">
+                </div>
+                <div class="form-group">
+                    <label>6-Digit OTP</label>
+                    <input type="text" id="verify-otp" maxlength="6" required placeholder="123456">
+                </div>
+                <button type="submit" class="btn-success">Verify Account</button>
+            </form>
+        </section>
+
+        <!-- Login Form -->
+        <section id="login-section" class="auth-card hidden">
+            <h2>Account Login</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label>Institutional Email</label>
+                    <input type="email" id="login-email" required placeholder="1ds25mc006@dsce.edu.in">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-primary">Login</button>
+            </form>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
