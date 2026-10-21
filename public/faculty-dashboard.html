@@ -1,218 +1,174 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Faculty Dashboard - Smart Campus RMS</title>
-    <link rel="stylesheet" href="style.css">
-    <style>
-        .dashboard-container { max-width: 1050px; margin: 2rem auto; padding: 0 1rem; }
-        .card { background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 1.5rem; }
-        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
-        .metric-card { background: #fff; padding: 1.2rem; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; border-top: 4px solid #3498db; }
-        .metric-card h4 { margin: 0; color: #7f8c8d; font-size: 0.85rem; text-transform: uppercase; }
-        .metric-card .value { font-size: 1.8rem; font-weight: bold; color: #2c3e50; margin-top: 0.5rem; }
-        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; font-size: 0.9rem; }
-        th { background: #f8f9fa; color: #2c3e50; }
-        .badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
-        .badge-pending { background: #fff3cd; color: #856404; }
-        .badge-approved { background: #d4edda; color: #155724; }
-        .badge-rejected { background: #f8d7da; color: #721c24; }
-        .btn-action { padding: 0.35rem 0.75rem; border: none; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer; margin-right: 0.25rem; }
-        .btn-approve { background: #2ecc71; color: white; }
-        .btn-approve:hover { background: #27ae60; }
-        .btn-reject { background: #e74c3c; color: white; }
-        .btn-reject:hover { background: #c0392b; }
-        .logout-btn { background: #e74c3c; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .logout-btn:hover { background: #c0392b; }
-        .dept-tag { background: #34495e; color: #fff; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Faculty Dashboard - Smart Campus RMS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="logo">Smart Campus RMS — Faculty Portal</div>
-        <div class="nav-links">
-            <span id="user-display" style="margin-right: 1rem; font-size: 0.9rem; color: #ecf0f1;"></span>
-            <span id="dept-display" class="dept-tag" style="margin-right: 1.5rem;">---</span>
-            <button onclick="handleLogout()" class="logout-btn">Logout</button>
+<div id="root"></div>
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script>window.react = React;</script>
+<script src="https://cdn.jsdelivr.net/npm/lucide-react@0.383.0/dist/umd/lucide-react.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.0/babel.min.js"></script>
+<script type="text/babel" data-presets="react" src="common.jsx"></script>
+<script type="text/babel" data-presets="react">
+if (!token || role !== 'faculty') window.location.href = '/';
+
+// Same course check used for both the queue and the room list
+const sameCourse = (a, b) => Boolean(a) && Boolean(b) && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+
+function App() {
+  const [toast, showAlert] = useToast();
+  const [dept, setDept] = useState(null);
+  const [bookings, setBookings] = useState(null);
+  const [rooms, setRooms] = useState([]);
+  const [roomId, setRoomId] = useState('');
+  const [date, setDate] = useState('');
+  const [locks, setLocks] = useState({});
+  const [confirm, setConfirm] = useState(null);
+
+  const loadFacultyBookings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/bookings/faculty-bookings', { headers: authHeaders() });
+      if (!res.ok) {
+        if (res.status === 403) { showAlert('Unauthorized access. Faculty privileges required.'); setTimeout(handleLogout, 2000); }
+        return;
+      }
+      const data = await res.json();
+      setDept(data.department);
+      // Only requests for this faculty's course (and from students of that course, when the API says so)
+      setBookings(data.bookings.filter(b =>
+        b.resource_id && sameCourse(b.resource_id.course, data.department) &&
+        (!b.user_id || !b.user_id.course || sameCourse(b.user_id.course, data.department))));
+    } catch (err) { console.error('Error loading faculty bookings:', err); showAlert('Failed to connect to server.'); }
+  }, []);
+
+  useEffect(() => { loadFacultyBookings(); }, []);
+
+  useEffect(() => {
+    if (!dept) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/resources', { headers: authHeaders() });
+        const all = await res.json();
+        setRooms(all.filter(r => sameCourse(r.course, dept)));
+      } catch (err) { console.error('Failed to load rooms', err); }
+    })();
+  }, [dept]);
+
+  useEffect(() => {
+    setLocks({});
+    if (!roomId || !date) return;
+    let off = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/slot-locks?resource_id=${encodeURIComponent(roomId)}&date=${encodeURIComponent(date)}`, { headers: authHeaders() });
+        if (res.ok) { const list = await res.json(); if (Array.isArray(list) && !off) { const m = {}; list.forEach(o => { m[o.slot] = Boolean(o.locked); }); setLocks(m); } }
+      } catch (err) { console.warn('Could not load slot locks, showing defaults', err); }
+    })();
+    return () => { off = true; };
+  }, [roomId, date]);
+
+  const updateStatus = async (bookingId, status) => {
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/status`, { method: 'PATCH', headers: authHeaders(true), body: JSON.stringify({ status }) });
+      const data = await res.json();
+      if (res.ok) { showAlert(`Request ${status} successfully!`, 'success'); loadFacultyBookings(); }
+      else showAlert(data.message || 'Failed to update status.');
+    } catch (err) { showAlert('Server communication error.'); }
+  };
+
+  const saveLock = async (slot, locked) => {
+    try {
+      const res = await fetch('/api/slot-locks', { method: 'PUT', headers: authHeaders(true), body: JSON.stringify({ resource_id: roomId, date, slot: slot.value, locked }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showAlert(data.error || data.message || 'Could not update slot.'); return; }
+      setLocks(l => ({ ...l, [slot.value]: locked }));
+      showAlert(locked ? 'Slot locked.' : 'Slot opened for students.', 'success');
+    } catch (err) { showAlert('Server communication error.'); }
+  };
+
+  const isLocked = s => (s.value in locks ? locks[s.value] : isMorning(s));
+  // red -> white asks first; white -> red is automatic
+  const toggle = s => (isLocked(s) ? setConfirm(s) : saveLock(s, true));
+  const ready = Boolean(roomId && date);
+  const items = SLOTS.map(s => { const l = isLocked(s); return { ...s, disabled: !ready, state: l ? 'locked' : 'open', text: !ready ? '—' : l ? 'Locked' : 'Open', icon: l ? 'Lock' : 'Unlock' }; });
+
+  const count = fn => (bookings || []).filter(fn).length;
+  const metrics = [
+    ['wait', 'Hourglass', 'Pending approvals', count(b => b.status === 'PENDING_FACULTY' || b.status === 'PENDING_ADMIN')],
+    ['ok', 'CheckCircle2', 'Approved requests', count(b => b.status === 'APPROVED')],
+    ['no', 'XCircle', 'Rejected requests', count(b => b.status === 'REJECTED')]
+  ];
+
+  return (
+    <Shell portal="Faculty portal" toast={toast} tag={<span className="tag">Dept: {dept || '---'}</span>}>
+      <div className="page-head"><h1>Department overview</h1><p>Review requests from your course and decide which slots are open to students.</p></div>
+
+      <div className="metrics">
+        {metrics.map(([k, icon, label, n]) => { const Icon = I[icon]; return (
+          <div key={k} className={`metric metric--${k}`}><Icon size={24} strokeWidth={1.25} /><span className="metric-value">{n}</span><span className="metric-label">{label}</span></div>); })}
+      </div>
+
+      <section className="panel">
+        <div className="panel-head"><h2>Manage slot locks</h2><p>Slots before 1:00 PM are locked for students by default. Select a locked slot to open it (you'll be asked to confirm). Select an open slot to lock it again instantly.</p></div>
+        <div className="form" style={{ marginBottom: 24 }}>
+          <Field label="Room / facility (your course)">
+            <select className="input" value={roomId} onChange={e => setRoomId(e.target.value)}>
+              <option value="">Select room</option>{rooms.map(r => <option key={r._id} value={r._id}>{`${r.building} - ${r.roomNumber}`}</option>)}
+            </select>
+          </Field>
+          <Field label="Date"><input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></Field>
         </div>
-    </nav>
+        <SlotGrid items={items} onPick={toggle} />
+        <Legend items={[['open', 'Open to students'], ['locked', 'Locked']]} />
+      </section>
 
-    <div class="dashboard-container">
-        <!-- Alert Notification Box -->
-        <div id="alert-box" class="alert hidden"></div>
+      <section className="panel">
+        <div className="panel-head"><h2>Department approval queue</h2><p>Booking requests from students of your course, for your course's facilities.</p></div>
+        {bookings === null ? <p className="muted">Loading department bookings...</p>
+          : bookings.length === 0 ? <Empty icon="Inbox">No resource requests found for your course.</Empty>
+          : <table className="tbl">
+              <thead><tr><th>Student email</th><th>Facility</th><th>Date &amp; time</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody>{bookings.map(b => (
+                <tr key={b._id}>
+                  <td data-label="Student email" className="full"><strong style={{ fontWeight: 500 }}>{b.user_id ? b.user_id.email : 'Unknown'}</strong></td>
+                  <td data-label="Facility">{b.resource_id ? `${b.resource_id.building} - ${b.resource_id.course} (${b.resource_id.roomNumber})` : 'N/A'}</td>
+                  <td data-label="Date & time"><When b={b} /></td>
+                  <td data-label="Status"><StatusBadge status={b.status} /></td>
+                  <td data-label="Action">{b.status === 'PENDING_FACULTY'
+                    ? <div className="btn-row">
+                        <button className="btn btn-sm btn-ok" onClick={() => updateStatus(b._id, 'approved')}><I.Check size={14} strokeWidth={1.75} />Approve</button>
+                        <button className="btn btn-sm btn-no" onClick={() => updateStatus(b._id, 'rejected')}><I.X size={14} strokeWidth={1.75} />Reject</button>
+                      </div>
+                    : <span className="muted">Processed</span>}</td>
+                </tr>))}</tbody>
+            </table>}
+      </section>
 
-        <!-- Metric Cards -->
-        <div class="metrics-grid">
-            <div class="metric-card" style="border-top-color: #f39c12;">
-                <h4>Pending Approvals</h4>
-                <div class="value" id="count-pending">0</div>
+      {confirm && (
+        <div className="backdrop" onClick={() => setConfirm(null)} onKeyDown={e => e.key === 'Escape' && setConfirm(null)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="ct" onClick={e => e.stopPropagation()}>
+            <I.Unlock size={24} strokeWidth={1.5} />
+            <h3 id="ct">Open this slot?</h3>
+            <p>{`Students will be able to request ${confirm.value} on ${date} for this room. Are you sure?`}</p>
+            <div className="btn-row">
+              <button className="btn btn-quiet" onClick={() => setConfirm(null)}>Cancel</button>
+              <button className="btn btn-primary" autoFocus onClick={() => { const s = confirm; setConfirm(null); saveLock(s, false); }}>Yes, open it</button>
             </div>
-            <div class="metric-card" style="border-top-color: #2ecc71;">
-                <h4>Approved Requests</h4>
-                <div class="value" id="count-approved">0</div>
-            </div>
-            <div class="metric-card" style="border-top-color: #e74c3c;">
-                <h4>Rejected Requests</h4>
-                <div class="value" id="count-rejected">0</div>
-            </div>
+          </div>
         </div>
+      )}
+    </Shell>
+  );
+}
 
-        <!-- Department Queue Table -->
-        <section class="card">
-            <h3>Department Approval Queue</h3>
-            <p class="subtext" style="color: #666; font-size: 0.85rem; margin-bottom: 1rem;">
-                Showing booking requests for facilities under your assigned department.
-            </p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Student Email</th>
-                        <th>Facility</th>
-                        <th>Date & Time</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="faculty-table-body">
-                    <tr>
-                        <td colspan="5" style="text-align: center; color: #777;">Loading department bookings...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </section>
-    </div>
-
-    <script>
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('role');
-        const userEmail = localStorage.getItem('userEmail');
-
-        // Guard: Restrict access to logged-in faculty only
-        if (!token || role !== 'faculty') {
-            window.location.href = '/';
-        } else {
-            document.getElementById('user-display').textContent = userEmail;
-        }
-
-        function showAlert(message, type = 'error') {
-            const alertBox = document.getElementById('alert-box');
-            alertBox.textContent = message;
-            alertBox.className = `alert alert-${type}`;
-            alertBox.classList.remove('hidden');
-            setTimeout(() => alertBox.classList.add('hidden'), 4000);
-        }
-
-        function handleLogout() {
-            localStorage.clear();
-            window.location.href = '/';
-        }
-
-        // Fetch Department Bookings
-        async function loadFacultyBookings() {
-            try {
-                const res = await fetch('/api/bookings/faculty-bookings', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (!res.ok) {
-                    if (res.status === 403) {
-                        showAlert('Unauthorized access. Faculty privileges required.');
-                        setTimeout(() => handleLogout(), 2000);
-                    }
-                    return;
-                }
-
-                const data = await res.json();
-                document.getElementById('dept-display').textContent = `DEPT: ${data.department}`;
-
-                const bookings = data.bookings;
-                const tbody = document.getElementById('faculty-table-body');
-
-                // Update Metrics
-                let pending = 0, approved = 0, rejected = 0;
-                bookings.forEach(b => {
-                    if (b.status === 'PENDING_FACULTY' || b.status === 'PENDING_ADMIN') pending++;
-                    if (b.status === 'APPROVED') approved++;
-                    if (b.status === 'REJECTED') rejected++;
-                });
-
-                document.getElementById('count-pending').textContent = pending;
-                document.getElementById('count-approved').textContent = approved;
-                document.getElementById('count-rejected').textContent = rejected;
-
-                if (bookings.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #777;">No resource requests found for your department.</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = '';
-                bookings.forEach(b => {
-                    const tr = document.createElement('tr');
-                    
-                    let badgeClass = 'badge-pending';
-                    if (b.status === 'APPROVED') badgeClass = 'badge-approved';
-                    if (b.status === 'REJECTED') badgeClass = 'badge-rejected';
-
-                    const resourceInfo = b.resource_id
-                        ? `${b.resource_id.building} - ${b.resource_id.course} (${b.resource_id.roomNumber})`
-                        : 'N/A';
-
-                    const studentEmail = b.user_id ? b.user_id.email : 'Unknown';
-
-                    let actionButtons = '-';
-                    if (b.status === 'PENDING_FACULTY') {
-                        actionButtons = `
-                            <button class="btn-action btn-approve" onclick="updateStatus('${b._id}', 'approved')">Approve</button>
-                            <button class="btn-action btn-reject" onclick="updateStatus('${b._id}', 'rejected')">Reject</button>
-                        `;
-                    } else {
-                        actionButtons = `<small style="color: #888;">Processed</small>`;
-                    }
-
-                    tr.innerHTML = `
-                        <td><strong>${studentEmail}</strong></td>
-                        <td>${resourceInfo}</td>
-                        <td>${new Date(b.start_time).toLocaleDateString()} <br><small>${new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(b.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></td>
-                        <td><span class="badge ${badgeClass}">${b.status.toUpperCase()}</span></td>
-                        <td>${actionButtons}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-
-            } catch (err) {
-                console.error('Error loading faculty bookings:', err);
-                showAlert('Failed to connect to server.');
-            }
-        }
-
-        // Handle Status Change (Approve / Reject)
-        async function updateStatus(bookingId, status) {
-            try {
-                const res = await fetch(`/api/bookings/${bookingId}/status`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ status })
-                });
-
-                const data = await res.json();
-                if (res.ok) {
-                    showAlert(`Request ${status} successfully!`, 'success');
-                    loadFacultyBookings();
-                } else {
-                    showAlert(data.message || 'Failed to update status.');
-                }
-            } catch (err) {
-                showAlert('Server communication error.');
-            }
-        }
-
-        // Initialize Faculty Dashboard
-        loadFacultyBookings();
-    </script>
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
 </body>
 </html>
