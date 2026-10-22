@@ -19,10 +19,28 @@
 <script type="text/babel" data-presets="react">
 if (!token || role !== 'student') window.location.href = '/';
 
+function campusDateString(value) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(value);
+  const part = type => parts.find(item => item.type === type).value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+function addOneDay(dateString) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+}
+
 function App() {
   const [toast, showAlert] = useToast();
+  const [now, setNow] = useState(() => new Date());
   const [resources, setResources] = useState([]);
   const [bookings, setBookings] = useState(null);
+  const [events, setEvents] = useState([]);
   const [loadErr, setLoadErr] = useState(false);
   const [building, setBuilding] = useState('');
   const [course, setCourse] = useState('');
@@ -30,9 +48,26 @@ function App() {
   const [date, setDate] = useState('');
   const [slot, setSlot] = useState('');
   const [purpose, setPurpose] = useState('');
+  
+  // Event Publishing Fields State
+  const [isEvent, setIsEvent] = useState(false);
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventScope, setEventScope] = useState('departmental');
+
   const [serverBooked, setServerBooked] = useState([]);
   const [locks, setLocks] = useState({});
   const [tick, setTick] = useState(0);
+  const today = campusDateString(now);
+  const minBookingDate = addOneDay(today);
+  const visibleBookings = (bookings || []).filter(booking =>
+    campusDateString(new Date(booking.start_time)) >= today
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const loadBookings = useCallback(async () => {
     try {
@@ -41,6 +76,14 @@ function App() {
       if (!res.ok || !Array.isArray(data)) throw new Error(data.message || 'Could not load booking requests.');
       setBookings(data); setLoadErr(false);
     } catch (err) { console.error('Failed to load bookings', err); setLoadErr(true); setBookings([]); }
+  }, []);
+
+  const loadEvents = useCallback(async () => {
+    try {
+      const res = await fetch('/api/events', { headers: authHeaders() });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) setEvents(data);
+    } catch (err) { console.error('Failed to load events feed', err); }
   }, []);
 
   useEffect(() => {
@@ -52,6 +95,7 @@ function App() {
       } catch (err) { console.error('Failed to load resources', err); }
     })();
     loadBookings();
+    loadEvents();
   }, []);
 
   useEffect(() => { setSlot(''); }, [resourceId, date]);
@@ -86,7 +130,8 @@ function App() {
     if (end <= new Date()) return 'Passed';
     if (s.value in locks ? locks[s.value] : isMorning(s)) return 'Locked';
     const mine = (bookings || []).filter(b => b.resource_id && (b.resource_id._id || b.resource_id) === resourceId);
-    const clash = [...serverBooked, ...mine].find(b => b.status !== 'REJECTED' && start < new Date(b.end_time) && new Date(b.start_time) < end);
+    const activeStatuses = ['PENDING_FACULTY', 'PENDING_ADMIN', 'APPROVED'];
+    const clash = [...serverBooked, ...mine].find(b => activeStatuses.includes(b.status) && start < new Date(b.end_time) && new Date(b.start_time) < end);
     return clash ? (clash.status === 'APPROVED' ? 'Booked' : 'Requested') : null;
   };
   useEffect(() => { const s = SLOTS.find(x => x.value === slot); if (s && reasonFor(s)) setSlot(''); }, [locks, serverBooked, bookings, slot]);
@@ -105,19 +150,38 @@ function App() {
 
   const submit = async e => {
     e.preventDefault();
+    if (!date || date < minBookingDate) {
+      showAlert('Please select a date after today.');
+      return;
+    }
     if (!slot) { showAlert('Please pick a time slot.'); return; }
+    if (isEvent && (!eventTitle.trim() || !eventDescription.trim())) {
+      showAlert('Event title and description are required when registering as an event.');
+      return;
+    }
     const [startTime, endTime] = slot.split(' - ');
     const startDateTime = new Date(`${date}T${startTime}:00`);
     const endDateTime = new Date(`${date}T${endTime}:00`);
     try {
       const res = await fetch('/api/bookings', {
         method: 'POST', headers: authHeaders(true),
-        body: JSON.stringify({ resource_id: resourceId, start_time: startDateTime.toISOString(), end_time: endDateTime.toISOString(), purpose: purpose.trim() })
+        body: JSON.stringify({ 
+          resource_id: resourceId, 
+          booking_date: date,
+          start_time: startDateTime.toISOString(), 
+          end_time: endDateTime.toISOString(), 
+          purpose: purpose.trim(),
+          isEvent,
+          eventTitle: eventTitle.trim(),
+          eventDescription: eventDescription.trim(),
+          eventScope
+        })
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         showAlert('Booking request submitted successfully!', 'success');
         setBuilding(''); setCourse(''); setResourceId(''); setDate(''); setSlot(''); setPurpose('');
+        setIsEvent(false); setEventTitle(''); setEventDescription(''); setEventScope('departmental');
         await loadBookings();
       } else {
         showAlert(data.error || data.message || `Booking failed (${res.status}).`);
@@ -150,10 +214,10 @@ function App() {
             <Field label="Room / facility">
               <select className="input" required disabled={!course} value={resourceId} onChange={e => setResourceId(e.target.value)}>
                 <option value="">{course ? 'Select room' : 'Choose course first'}</option>
-                {rooms.map(r => <option key={r._id} value={r._id}>{`${r.roomNumber} (${r.type.toUpperCase()} - Cap: ${r.capacity})`}</option>)}
+                {rooms.map(r => <option key={r._id} value={r._id}>{`${r.roomNumber} (${r.type ? r.type.toUpperCase() : 'ROOM'} - Cap: ${r.capacity})`}</option>)}
               </select>
             </Field>
-            <Field label="Date"><input className="input" type="date" required value={date} onChange={e => setDate(e.target.value)} /></Field>
+            <Field label="Date"><input className="input" type="date" required min={minBookingDate} value={date} onChange={e => setDate(e.target.value)} /></Field>
 
             <div className="span-2">
               <span className="field-label">Time slot</span>
@@ -165,6 +229,35 @@ function App() {
             </div>
 
             <Field label="Purpose" className="span-2"><input className="input" type="text" required value={purpose} onChange={e => setPurpose(e.target.value)} /></Field>
+            
+            {/* Optional Event Publishing Section */}
+            <div className="span-2" style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1rem', marginTop: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: '500', color: '#2c3e50' }}>
+                <input type="checkbox" checked={isEvent} onChange={e => setIsEvent(e.target.checked)} style={{ width: '16px', height: '16px' }} /> 
+                Register as Official Event upon approval
+              </label>
+            </div>
+
+            {isEvent && (
+              <div className="span-2" style={{ background: '#f8fafc', padding: '1rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label className="field-label" style={{ display: 'block', marginBottom: '4px' }}>Event Title</label>
+                  <input className="input" type="text" placeholder="e.g., AI Workshop 2026" value={eventTitle} onChange={e => setEventTitle(e.target.value)} required={isEvent} />
+                </div>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label className="field-label" style={{ display: 'block', marginBottom: '4px' }}>Event Description</label>
+                  <textarea className="input" rows="2" placeholder="Provide brief details about the event..." value={eventDescription} onChange={e => setEventDescription(e.target.value)} required={isEvent} style={{ resize: 'vertical' }}></textarea>
+                </div>
+                <div>
+                  <label className="field-label" style={{ display: 'block', marginBottom: '4px' }}>Event Scope</label>
+                  <select className="input" value={eventScope} onChange={e => setEventScope(e.target.value)}>
+                    <option value="departmental">Departmental (Only your course)</option>
+                    <option value="global">Global (All campus students)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
             <div className="span-2"><button type="submit" className="btn btn-primary"><I.Send size={16} strokeWidth={1.5} />Submit request</button></div>
           </form>
         </section>
@@ -184,18 +277,46 @@ function App() {
         <div className="panel-head"><h2>Your booking requests</h2></div>
         {bookings === null ? <p className="muted">Loading your bookings...</p>
           : loadErr ? <Empty icon="AlertCircle">Unable to load booking requests. Please refresh the page.</Empty>
-          : bookings.length === 0 ? <Empty icon="Inbox">No booking requests found.</Empty>
+          : visibleBookings.length === 0 ? <Empty icon="Inbox">No upcoming booking requests found.</Empty>
           : <table className="tbl">
               <thead><tr><th>Building</th><th>Course</th><th>Room</th><th>Date &amp; time</th><th>Status</th></tr></thead>
-              <tbody>{bookings.map(b => (
+              <tbody>{visibleBookings.map(b => (
                 <tr key={b._id}>
                   <td data-label="Building">{b.resource_id ? b.resource_id.building : 'N/A'}</td>
                   <td data-label="Course">{b.resource_id ? b.resource_id.course : 'N/A'}</td>
                   <td data-label="Room">{b.resource_id ? b.resource_id.roomNumber : 'N/A'}</td>
                   <td data-label="Date & time"><When b={b} /></td>
-                  <td data-label="Status"><StatusBadge status={b.status} /></td>
+                  <td data-label="Status">
+                    <StatusBadge status={b.status} />
+                    {b.isEvent && <span style={{ marginLeft: '6px', fontSize: '0.7rem', background: '#e2e8f0', color: '#4a5568', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>EVENT</span>}
+                  </td>
                 </tr>))}</tbody>
             </table>}
+      </section>
+
+      {/* Approved Campus & Department Events Feed Section */}
+      <section className="panel" style={{ marginTop: '2rem' }}>
+        <div className="panel-head"><h2>📅 Approved Campus Events Feed</h2><p>Official events approved for your department and campus.</p></div>
+        {events.length === 0 ? (
+          <p className="muted" style={{ padding: '1rem 0' }}>No approved campus events available right now.</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+            {events.map(ev => (
+              <div key={ev._id} style={{ background: '#fdfefe', borderLeft: '4px solid #3498db', padding: '1.2rem', borderRadius: '6px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                  <h4 style={{ margin: 0, color: '#2c3e50', fontSize: '1.05rem' }}>{ev.title}</h4>
+                  <span style={{ background: '#3498db', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>{ev.scope}</span>
+                </div>
+                <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.88rem', color: '#555', lineHeight: '1.4' }}>{ev.description}</p>
+                <div style={{ fontSize: '0.78rem', color: '#7f8c8d', borderTop: '1px solid #f1f5f9', paddingTop: '0.5rem' }}>
+                  📍 <strong>{ev.resource ? `${ev.resource.building} - ${ev.resource.roomNumber}` : 'N/A'}</strong><br />
+                  🕒 <strong>{new Date(ev.date).toLocaleDateString()} ({ev.timeSlot || 'Scheduled'})</strong><br />
+                  🏛️ Dept: {ev.department}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </Shell>
   );

@@ -23,6 +23,9 @@ app.use('/api/bookings', bookingRoutes);
 const slotLockRoutes = require('./routes/slotLockRoutes');
 app.use('/api/slot-locks', slotLockRoutes);
 
+const eventRoutes = require('./routes/eventRoutes');
+app.use('/api/events', eventRoutes);
+
 // Serve static frontend assets
 app.use(express.static(path.join(__dirname, 'public')));
 

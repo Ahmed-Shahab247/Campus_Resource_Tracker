@@ -11,7 +11,24 @@ const bookingSchema = new mongoose.Schema({
         enum: ['PENDING_FACULTY', 'PENDING_ADMIN', 'APPROVED', 'REJECTED', 'COMPLETED'], 
         default: 'PENDING_FACULTY' 
     },
-    remarks: { type: String, default: '' }            // Faculty/Admin feedback notes
+    remarks: { type: String, default: '' },            // Faculty/Admin feedback notes
+    isEvent: {
+        type: Boolean,
+        default: false
+    },
+    eventTitle: {
+        type: String,
+        trim: true
+    },
+    eventDescription: {
+        type: String,
+        trim: true
+    },
+    eventScope: {
+        type: String,
+        enum: ['global', 'departmental'],
+        default: 'departmental'
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Booking', bookingSchema);
