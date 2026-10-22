@@ -14,6 +14,13 @@ function isValidDate(date) {
     return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 }
 
+function isSlotLockExempt(resource, date) {
+    if (resource.type?.toLowerCase().includes('auditorium')) return true;
+    const [year, month, day] = date.split('-').map(Number);
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    return weekday === 0 || weekday === 6;
+}
+
 function getFacultyDepartment(facultyUser) {
     const department = facultyUser.department?.trim();
     if (department && department.toLowerCase() !== 'general') return department;
@@ -101,6 +108,11 @@ router.put('/', verifyToken, async (req, res) => {
 
         const resource = await getAccessibleResource(resourceId, req.user, res);
         if (!resource) return;
+        if (locked && isSlotLockExempt(resource, date)) {
+            return res.status(400).json({
+                message: 'Weekend and auditorium slots cannot be locked.'
+            });
+        }
 
         const lock = await SlotLock.findOneAndUpdate(
             { resource_id: resource._id, date, slot },

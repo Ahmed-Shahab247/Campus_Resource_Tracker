@@ -93,11 +93,13 @@ function App() {
     } catch (err) { showAlert('Server communication error.'); }
   };
 
-  const isLocked = s => (s.value in locks ? locks[s.value] : isMorning(s));
+  const selectedRoom = rooms.find(room => room._id === roomId);
+  const lockExempt = isSlotLockExempt(selectedRoom, date);
+  const isLocked = s => !lockExempt && (s.value in locks ? locks[s.value] : isMorning(s));
   // red -> white asks first; white -> red is automatic
   const toggle = s => (isLocked(s) ? setConfirm(s) : saveLock(s, true));
   const ready = Boolean(roomId && date);
-  const items = SLOTS.map(s => { const l = isLocked(s); return { ...s, disabled: !ready, state: l ? 'locked' : 'open', text: !ready ? '—' : l ? 'Locked' : 'Open', icon: l ? 'Lock' : 'Unlock' }; });
+  const items = SLOTS.map(s => { const l = isLocked(s); return { ...s, disabled: !ready || lockExempt, state: l ? 'locked' : 'open', text: !ready ? '—' : lockExempt ? 'Always open' : l ? 'Locked' : 'Open', icon: l ? 'Lock' : 'Unlock' }; });
 
   const count = fn => (bookings || []).filter(fn).length;
   const metrics = [
@@ -116,7 +118,7 @@ function App() {
       </div>
 
       <section className="panel">
-        <div className="panel-head"><h2>Manage slot locks</h2><p>Slots before 1:00 PM are locked for students by default. Select a locked slot to open it (you'll be asked to confirm). Select an open slot to lock it again instantly.</p></div>
+        <div className="panel-head"><h2>Manage slot locks</h2><p>Slots before 1:00 PM are locked for students by default on weekdays. Weekend slots and auditorium slots are always open. Select a locked slot to open it (you'll be asked to confirm). Select an open slot to lock it again instantly.</p></div>
         <div className="form" style={{ marginBottom: 24 }}>
           <Field label="Room / facility (your course)">
             <select className="input" value={roomId} onChange={e => setRoomId(e.target.value)}>

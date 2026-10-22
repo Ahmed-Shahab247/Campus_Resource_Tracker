@@ -128,7 +128,9 @@ function App() {
     if (!ready) return null;
     const [start, end] = slotRange(date, s.value);
     if (end <= new Date()) return 'Passed';
-    if (s.value in locks ? locks[s.value] : isMorning(s)) return 'Locked';
+    const selectedResource = resources.find(resource => resource._id === resourceId);
+    if (!isSlotLockExempt(selectedResource, date) &&
+        (s.value in locks ? locks[s.value] : isMorning(s))) return 'Locked';
     const mine = (bookings || []).filter(b => b.resource_id && (b.resource_id._id || b.resource_id) === resourceId);
     const activeStatuses = ['PENDING_FACULTY', 'PENDING_ADMIN', 'APPROVED'];
     const clash = [...serverBooked, ...mine].find(b => activeStatuses.includes(b.status) && start < new Date(b.end_time) && new Date(b.start_time) < end);
