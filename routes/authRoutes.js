@@ -2,10 +2,36 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const jwt = require('jsonwebtoken'); // Run `npm install jsonwebtoken` if not installed
+const nodemailer = require('nodemailer');
 const JWT_SECRET = require('../config/jwt');
+
+function createEmailTransporter() {
+    const host = process.env.SMTP_HOST;
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    const port = Number(process.env.SMTP_PORT || 587);
+
+    if (!host || !user || !pass || !Number.isInteger(port) || port < 1 || port > 65535) {
+        return null;
+    }
+
+    return nodemailer.createTransport({
+        host,
+        port,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: { user, pass }
+    });
+}
 
 router.post('/register', async (req, res) => {
     try {
+        const transporter = createEmailTransporter();
+        if (!transporter) {
+            return res.status(503).json({
+                message: 'Email delivery is not configured. Set valid SMTP settings on the server.'
+            });
+        }
+
         const { name, email, password } = req.body;
         const cleanEmail = email.toLowerCase().trim();
 
@@ -59,12 +85,23 @@ router.post('/register', async (req, res) => {
 
         await user.save();
 
-        console.log(`\n==========================================`);
-        console.log(`[OTP] Email: ${cleanEmail} | Role: ${role.toUpperCase()} | Dept: ${department} | Code: ${otp}`);
-        console.log(`==========================================\n`);
+        try {
+            await transporter.sendMail({
+                from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+                to: cleanEmail,
+                subject: 'Your Smart Campus RMS verification code',
+                text: `Your Smart Campus RMS verification code is ${otp}. It expires in 10 minutes.`,
+                html: `<p>Your Smart Campus RMS verification code is:</p><p style="font-size:24px;font-weight:bold;letter-spacing:4px">${otp}</p><p>This code expires in 10 minutes.</p>`
+            });
+        } catch (err) {
+            console.error('OTP email delivery error:', err);
+            return res.status(502).json({
+                message: 'Could not send the verification email. Please try registering again.'
+            });
+        }
 
         return res.status(200).json({ 
-            message: `OTP generated! Role: ${role} (${department}). Check terminal for code.` 
+            message: `Verification code sent to your email. Role: ${role} (${department}).`
         });
 
     } catch (err) {

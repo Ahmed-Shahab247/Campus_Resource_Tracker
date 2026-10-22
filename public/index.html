@@ -4,77 +4,78 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Campus RMS - Auth</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="theme.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="logo">Smart Campus RMS</div>
-        <div class="nav-links">
+    <header class="topbar"><div class="topbar-in">
+        <div class="brand"><span class="ico" data-icon="Leaf" data-size="22"></span><span class="brand-name">Smart Campus RMS</span></div>
+        <nav class="nav-links">
             <a href="#" onclick="showSection('login')">Login</a>
             <a href="#" onclick="showSection('register')">Register</a>
-        </div>
-    </nav>
+        </nav>
+    </div></header>
 
-    <div class="container">
+    <main class="container container--auth">
         <!-- Alert Notification -->
         <div id="alert-box" class="alert hidden"></div>
 
         <!-- Registration Form -->
         <section id="register-section" class="auth-card">
-            <h2>Campus Registration</h2>
+            <div class="auth-icon"><span class="ico" data-icon="UserPlus" data-size="22"></span></div>
+            <h2>Campus registration</h2>
             <p class="subtext">Role is automatically assigned based on your DSCE email format.</p>
             <form id="register-form">
-                <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" id="reg-name" required placeholder="John Doe">
-                </div>
-                <div class="form-group">
-                    <label>DSCE Institutional Email</label>
-                    <input type="email" id="reg-email" required placeholder="1ds25mc006@dsce.edu.in">
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="reg-password" required placeholder="••••••••">
-                </div>
-                <button type="submit" class="btn-primary">Register & Get OTP</button>
+                <label class="field"><span class="field-label">Full name</span>
+                    <div class="input-wrap"><span class="ico" data-icon="User" data-size="18"></span><input class="input" type="text" id="reg-name" required></div></label>
+                <label class="field"><span class="field-label">DSCE institutional email</span>
+                    <div class="input-wrap"><span class="ico" data-icon="Mail" data-size="18"></span><input class="input" type="email" id="reg-email" required></div></label>
+                <label class="field"><span class="field-label">Password</span>
+                    <div class="input-wrap"><span class="ico" data-icon="Lock" data-size="18"></span><input class="input" type="password" id="reg-password" required></div></label>
+                <button type="submit" class="btn btn-primary btn-block"><span class="ico" data-icon="ArrowRight" data-size="16"></span>Register &amp; get OTP</button>
             </form>
             <p class="switch-auth">Already registered? <a href="#" onclick="showSection('verify')">Verify OTP</a> or <a href="#" onclick="showSection('login')">Login</a></p>
         </section>
 
         <!-- OTP Verification Form (Hidden by default) -->
         <section id="verify-section" class="auth-card hidden">
-            <h2>Enter Verification OTP</h2>
-            <p class="subtext">A 6-digit code was sent to your terminal.</p>
+            <div class="auth-icon"><span class="ico" data-icon="ShieldCheck" data-size="22"></span></div>
+            <h2>Enter verification OTP</h2>
+            <p class="subtext">A 6-digit code was sent to your email.</p>
             <form id="verify-form">
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <input type="email" id="verify-email" required placeholder="1ds25mc006@dsce.edu.in">
-                </div>
-                <div class="form-group">
-                    <label>6-Digit OTP</label>
-                    <input type="text" id="verify-otp" maxlength="6" required placeholder="123456">
-                </div>
-                <button type="submit" class="btn-success">Verify Account</button>
+                <label class="field"><span class="field-label">Email address</span>
+                    <div class="input-wrap"><span class="ico" data-icon="Mail" data-size="18"></span><input class="input" type="email" id="verify-email" required></div></label>
+                <label class="field"><span class="field-label">6-digit OTP</span>
+                    <div class="input-wrap"><span class="ico" data-icon="KeyRound" data-size="18"></span><input class="input input--otp" type="text" id="verify-otp" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required></div></label>
+                <button type="submit" class="btn btn-primary btn-block"><span class="ico" data-icon="BadgeCheck" data-size="16"></span>Verify account</button>
             </form>
         </section>
 
         <!-- Login Form -->
         <section id="login-section" class="auth-card hidden">
-            <h2>Account Login</h2>
+            <div class="auth-icon"><span class="ico" data-icon="LogIn" data-size="22"></span></div>
+            <h2>Account login</h2>
             <form id="login-form">
-                <div class="form-group">
-                    <label>Institutional Email</label>
-                    <input type="email" id="login-email" required placeholder="1ds25mc006@dsce.edu.in">
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="login-password" required placeholder="••••••••">
-                </div>
-                <button type="submit" class="btn-primary">Login</button>
+                <label class="field"><span class="field-label">Institutional email</span>
+                    <div class="input-wrap"><span class="ico" data-icon="Mail" data-size="18"></span><input class="input" type="email" id="login-email" required></div></label>
+                <label class="field"><span class="field-label">Password</span>
+                    <div class="input-wrap"><span class="ico" data-icon="Lock" data-size="18"></span><input class="input" type="password" id="login-password" required></div></label>
+                <button type="submit" class="btn btn-primary btn-block"><span class="ico" data-icon="LogIn" data-size="16"></span>Login</button>
             </form>
         </section>
-    </div>
+    </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.383.0/dist/umd/lucide-react.min.js"></script>
+    <script>
+        // Render Lucide-React icons into the placeholders; app.js logic is untouched
+        document.querySelectorAll('[data-icon]').forEach(function (el) {
+            var Icon = LucideReact[el.dataset.icon];
+            if (Icon) ReactDOM.createRoot(el).render(React.createElement(Icon, { size: Number(el.dataset.size) || 18, strokeWidth: 1.5 }));
+        });
+    </script>
     <script src="app.js"></script>
 </body>
 </html>

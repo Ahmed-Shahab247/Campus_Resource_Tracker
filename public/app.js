@@ -46,7 +46,7 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
         const data = await res.json();
 
         if (res.ok) {
-            showAlert(data.message || 'Registration initiated! Check terminal for OTP.', 'success');
+            showAlert(data.message || 'Registration initiated! Check your email for the OTP.', 'success');
             // Auto-fill verification email & transition view
             document.getElementById('verify-email').value = email;
             showSection('verify');
