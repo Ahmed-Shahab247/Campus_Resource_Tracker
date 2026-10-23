@@ -1,3 +1,4 @@
+/* Purpose: Global styling and theming for the campus resource management interface. */
 /* Smart Campus RMS: shared theme. One palette: stone neutrals + deep sage; clay and sand are tonal status accents. */
 :root{
   --bg:#F5F3EE; --surface:#FBFAF7; --ink:#1E2420; --ink-2:#4B534D; --mute:#7B837C;

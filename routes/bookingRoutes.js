@@ -1,3 +1,4 @@
+// Purpose: Manages student booking requests, availability checks, and booking retrieval logic.
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');

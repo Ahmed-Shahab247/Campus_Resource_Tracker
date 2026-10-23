@@ -1,3 +1,4 @@
+// Purpose: Verifies incoming JWTs and restricts routes by user role.
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = require('../config/jwt');
 

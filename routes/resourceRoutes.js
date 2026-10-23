@@ -1,3 +1,4 @@
+// Purpose: Lists available campus resources and seeds default resource data when the collection is empty.
 const express = require('express');
 const router = express.Router();
 const Resource = require('../models/Resource');

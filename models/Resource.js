@@ -1,3 +1,4 @@
+// Purpose: Defines the campus resource schema used for rooms, labs, and shared facilities.
 const mongoose = require('mongoose');
 
 const resourceSchema = new mongoose.Schema({

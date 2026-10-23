@@ -1,3 +1,4 @@
+// Purpose: Defines resource time-slot lock records used to block bookings for selected periods.
 const mongoose = require('mongoose');
 
 const slotLockSchema = new mongoose.Schema({

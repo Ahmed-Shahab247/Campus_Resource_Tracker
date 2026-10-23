@@ -1,3 +1,4 @@
+// Purpose: Lets faculty lock or unlock room time slots for resource availability management.
 const express = require('express');
 const mongoose = require('mongoose');
 const Resource = require('../models/Resource');

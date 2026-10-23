@@ -1,3 +1,4 @@
+// Purpose: Bootstraps the Express server, mounts all API routes, serves the frontend, and connects to MongoDB.
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');

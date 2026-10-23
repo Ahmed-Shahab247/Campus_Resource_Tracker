@@ -1,3 +1,4 @@
+// Purpose: Handles user registration, OTP verification, and login for students and faculty.
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');

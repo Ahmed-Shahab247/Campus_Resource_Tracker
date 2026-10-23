@@ -1,3 +1,4 @@
+// Purpose: Provides shared React helpers, UI widgets, and dashboard utilities used across student and faculty pages.
 // Shared helpers + components (React via CDN, icons from lucide-react only)
 const { useState, useEffect, useCallback, useRef } = React;
 const I = LucideReact;

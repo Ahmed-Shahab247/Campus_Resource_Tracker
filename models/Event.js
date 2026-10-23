@@ -1,3 +1,4 @@
+// Purpose: Defines the event schema linked to resources, bookings, and organizers.
 const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema({

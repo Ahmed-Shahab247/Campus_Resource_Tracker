@@ -1,3 +1,4 @@
+<!-- Purpose: Project overview and setup guide for the Smart Campus Resource Management System. -->
 # Smart Campus Resource Management System
 
 This project is a campus resource booking and scheduling backend built with Node.js, Express, and MongoDB. It allows students and faculty members to register with their DSCE institutional email, verify their account using OTP, browse available campus resources, request bookings, and manage room or slot availability.

@@ -1,3 +1,4 @@
+// Purpose: Defines the MongoDB user schema with role, department, OTP, and verification fields.
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({

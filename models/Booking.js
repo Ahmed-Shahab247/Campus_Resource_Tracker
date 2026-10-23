@@ -1,3 +1,4 @@
+// Purpose: Defines booking records for room requests, statuses, and event metadata.
 const mongoose = require('mongoose');
 
 const bookingSchema = new mongoose.Schema({
