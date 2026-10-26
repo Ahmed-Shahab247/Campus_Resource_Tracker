@@ -5,6 +5,23 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken'); // Run `npm install jsonwebtoken` if not installed
 const nodemailer = require('nodemailer');
 const JWT_SECRET = require('../config/jwt');
+const STUDENT_EMAIL_DOMAIN = 'dsce.edu.in';
+const FACULTY_EMAIL_DOMAIN = 'dayanandasagar.edu';
+const FACULTY_DEPARTMENTS = {
+    mca: 'MCA',
+    mba: 'MBA',
+    bba: 'BBA',
+    cse: 'CSE',
+    cv: 'Civil',
+    eee: 'Department of Electrical & Electronics Engineering (EEE)',
+    iem: 'Department of Industrial Engineering & Management (IEM)',
+    automobile: 'Department of Automobile Engineering',
+    aeronautical: 'Department of Aeronautical Engineering',
+    mechanical: 'Department of Mechanical Engineering (Main labs and classrooms)',
+    chemistry: 'Department of Chemistry (General Engineering Sciences)',
+    biotechnology: 'Department of Biotechnology',
+    architecture: 'Department of Architecture'
+};
 
 function createEmailTransporter() {
     const host = process.env.SMTP_HOST;
@@ -34,21 +51,20 @@ router.post('/register', async (req, res) => {
         }
 
         const { name, email, password } = req.body;
+        if (typeof email !== 'string') {
+            return res.status(400).json({ message: 'A valid institutional email address is required.' });
+        }
         const cleanEmail = email.toLowerCase().trim();
-
-        if (!cleanEmail.endsWith('@dsce.edu.in')) {
-            return res.status(400).json({ 
-                message: 'Registration restricted! You must use an official @dsce.edu.in email address.' 
-            });
+        const [emailLocalPart, emailDomain, extraEmailPart] = cleanEmail.split('@');
+        if (!emailLocalPart || extraEmailPart !== undefined) {
+            return res.status(400).json({ message: 'A valid institutional email address is required.' });
         }
 
-        const emailLocalPart = cleanEmail.split('@')[0];
         const studentUsnRegex = /^1ds\d{2}[a-z]{2}\d{3}$/;
+        let role;
+        let department;
 
-        let role = 'faculty';
-        let department = 'General';
-
-        if (studentUsnRegex.test(emailLocalPart)) {
+        if (emailDomain === STUDENT_EMAIL_DOMAIN && studentUsnRegex.test(emailLocalPart)) {
             role = 'student';
             // Extract branch from USN (e.g., '1ds25mc006' -> 'mc' -> MCA)
             const branchCode = emailLocalPart.substring(5, 7).toUpperCase();
@@ -56,13 +72,20 @@ router.post('/register', async (req, res) => {
             else if (branchCode === 'CS') department = 'CSE';
             else if (branchCode === 'CV') department = 'Civil';
             else department = branchCode;
+        } else if (emailDomain === FACULTY_EMAIL_DOMAIN) {
+            const facultyEmailMatch = emailLocalPart.match(/^([^+]+)\+([a-z0-9-]+)\+vtu$/);
+            if (!facultyEmailMatch) {
+                return res.status(400).json({
+                    message: 'Faculty email must follow the name+course+vtu@dayanandasagar.edu format.'
+                });
+            }
+            role = 'faculty';
+            const courseCode = facultyEmailMatch[2];
+            department = FACULTY_DEPARTMENTS[courseCode] || courseCode.toUpperCase();
         } else {
-            // Faculty detection based on keywords in email (e.g. mca.sharma@dsce.edu.in or hod.mba@dsce.edu.in)
-            if (emailLocalPart.includes('mca')) department = 'MCA';
-            else if (emailLocalPart.includes('mba')) department = 'MBA';
-            else if (emailLocalPart.includes('bba')) department = 'BBA';
-            else if (emailLocalPart.includes('cse')) department = 'CSE';
-            else department = 'General'; // Can see general/admin resources
+            return res.status(400).json({
+                message: 'Use a valid student @dsce.edu.in USN email or faculty name+course+vtu@dayanandasagar.edu email.'
+            });
         }
 
         let user = await User.findOne({ email: cleanEmail });

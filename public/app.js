@@ -32,9 +32,13 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     const email = document.getElementById('reg-email').value.trim();
     const password = document.getElementById('reg-password').value;
 
-    // Client-side domain check
-    if (!email.toLowerCase().endsWith('@dsce.edu.in')) {
-        showAlert('Please enter a valid @dsce.edu.in institutional email address.');
+    const [emailLocalPart, emailDomain, ...extraEmailParts] = email.toLowerCase().split('@');
+    const isStudentEmail = emailDomain === 'dsce.edu.in' &&
+        /^1ds\d{2}[a-z]{2}\d{3}$/.test(emailLocalPart);
+    const isFacultyEmail = emailDomain === 'dayanandasagar.edu' &&
+        /^[^+]+[+][a-z0-9-]+[+]vtu$/.test(emailLocalPart);
+    if (extraEmailParts.length || (!isStudentEmail && !isFacultyEmail)) {
+        showAlert('Use a student @dsce.edu.in USN email or a faculty name+course+vtu@dayanandasagar.edu email.');
         return;
     }
 

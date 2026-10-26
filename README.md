@@ -60,10 +60,10 @@ The project uses institutional email registration and OTP verification.
 The `POST /api/auth/register` endpoint:
 
 - accepts name, email, and password
-- restricts registration to official `@dsce.edu.in` addresses
+- accepts student `@dsce.edu.in` USN emails and faculty `name+course+vtu@dayanandasagar.edu` emails
 - determines the user's role:
-  - student accounts are inferred from DSCE USN patterns
-  - faculty accounts are inferred from departmental email patterns
+  - student accounts are inferred from the DSCE USN pattern and branch code
+  - faculty accounts are inferred from the course segment between the plus signs (for example, `name+mca+vtu@dayanandasagar.edu`)
 - creates or updates a user record
 - generates a 6-digit OTP
 - sends the OTP to the registered email address
