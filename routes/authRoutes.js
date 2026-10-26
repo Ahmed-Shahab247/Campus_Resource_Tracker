@@ -2,9 +2,13 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const jwt = require('jsonwebtoken'); // Run `npm install jsonwebtoken` if not installed
+const Booking = require('../models/Booking');
+const Event = require('../models/Event');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const JWT_SECRET = require('../config/jwt');
+const { verifyToken } = require('../middleware/authMiddleware');
 const STUDENT_EMAIL_DOMAIN = 'dsce.edu.in';
 const FACULTY_EMAIL_DOMAIN = 'dayanandasagar.edu';
 const FACULTY_DEPARTMENTS = {
@@ -22,6 +26,14 @@ const FACULTY_DEPARTMENTS = {
     biotechnology: 'Department of Biotechnology',
     architecture: 'Department of Architecture'
 };
+
+async function passwordMatches(user, password) {
+    if (typeof password !== 'string' || typeof user.password !== 'string') return false;
+    if (/^\$2[aby]\$/.test(user.password)) {
+        return bcrypt.compare(password, user.password);
+    }
+    return user.password === password;
+}
 
 function createEmailTransporter() {
     const host = process.env.SMTP_HOST;
@@ -51,6 +63,9 @@ router.post('/register', async (req, res) => {
         }
 
         const { name, email, password } = req.body;
+        if (typeof name !== 'string' || !name.trim() || typeof password !== 'string' || !password) {
+            return res.status(400).json({ message: 'Name and password are required.' });
+        }
         if (typeof email !== 'string') {
             return res.status(400).json({ message: 'A valid institutional email address is required.' });
         }
@@ -95,12 +110,13 @@ router.post('/register', async (req, res) => {
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        const passwordHash = await bcrypt.hash(password, 12);
 
         if (!user) {
-            user = new User({ name, email: cleanEmail, password, role, department, otp, otpExpires, isVerified: false });
+            user = new User({ name, email: cleanEmail, password: passwordHash, role, department, otp, otpExpires, isVerified: false });
         } else {
-            user.name = name;
-            user.password = password;
+            user.name = name.trim();
+            user.password = passwordHash;
             user.otp = otp;
             user.otpExpires = otpExpires;
             user.role = role;
@@ -131,6 +147,66 @@ router.post('/register', async (req, res) => {
     } catch (err) {
         console.error('Registration Error:', err);
         return res.status(500).json({ message: 'Internal server error.' });
+    }
+});
+
+router.post('/change-password', verifyToken, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+            return res.status(400).json({ message: 'Current password and new password are required.' });
+        }
+        if (newPassword.length < 8 || newPassword.length > 128) {
+            return res.status(400).json({ message: 'New password must be between 8 and 128 characters.' });
+        }
+
+        const user = await User.findById(req.user.userId);
+        if (!user || !user.isVerified) {
+            return res.status(404).json({ message: 'Verified account not found.' });
+        }
+        if (!(await passwordMatches(user, currentPassword))) {
+            return res.status(400).json({ message: 'Current password is incorrect.' });
+        }
+        if (await passwordMatches(user, newPassword)) {
+            return res.status(400).json({ message: 'New password must differ from your current password.' });
+        }
+
+        user.password = await bcrypt.hash(newPassword, 12);
+        await user.save();
+        return res.status(200).json({ message: 'Password changed successfully.' });
+    } catch (err) {
+        console.error('Password change error:', err);
+        return res.status(500).json({ message: 'Internal server error.' });
+    }
+});
+
+router.post('/delete-account', verifyToken, async (req, res) => {
+    try {
+        const { currentPassword } = req.body;
+        if (typeof currentPassword !== 'string' || !currentPassword) {
+            return res.status(400).json({ message: 'Current password is required to delete your account.' });
+        }
+
+        const user = await User.findById(req.user.userId);
+        if (!user || !(await passwordMatches(user, currentPassword))) {
+            return res.status(400).json({ message: 'Current password is incorrect.' });
+        }
+
+        const bookings = await Booking.find({ user_id: user._id }).select('_id');
+        const bookingIds = bookings.map(booking => booking._id);
+        await Event.deleteMany({
+            $or: [
+                { organizer: user._id },
+                { booking: { $in: bookingIds } }
+            ]
+        });
+        await Booking.deleteMany({ user_id: user._id });
+        await User.deleteOne({ _id: user._id });
+
+        return res.status(200).json({ message: 'Account and associated bookings and events were deleted.' });
+    } catch (err) {
+        console.error('Account deletion error:', err);
+        return res.status(500).json({ message: 'Could not delete the account. Please try again.' });
     }
 });
 
@@ -189,9 +265,13 @@ router.post('/login', async (req, res) => {
             return res.status(403).json({ message: 'Please verify your account with OTP before logging in.' });
         }
 
-        // Direct password check (or use bcrypt.compare if you hashed passwords)
-        if (user.password !== password) {
+        if (!(await passwordMatches(user, password))) {
             return res.status(400).json({ message: 'Invalid email or password.' });
+        }
+
+        if (!/^\$2[aby]\$/.test(user.password)) {
+            user.password = await bcrypt.hash(password, 12);
+            await user.save();
         }
 
         // Generate JWT Token

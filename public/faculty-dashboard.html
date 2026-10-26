@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
+<script src="api-config.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -35,7 +36,7 @@ function App() {
 
   const loadFacultyBookings = useCallback(async () => {
     try {
-      const res = await fetch('/api/bookings/faculty-bookings', { headers: authHeaders() });
+      const res = await fetch(window.apiUrl('/api/bookings/faculty-bookings'), { headers: authHeaders() });
       if (!res.ok) {
         if (res.status === 403) { showAlert('Unauthorized access. Faculty privileges required.'); setTimeout(handleLogout, 2000); }
         return;
@@ -55,7 +56,7 @@ function App() {
     if (!dept) return;
     (async () => {
       try {
-        const res = await fetch('/api/resources', { headers: authHeaders() });
+        const res = await fetch(window.apiUrl('/api/resources'), { headers: authHeaders() });
         const all = await res.json();
         setRooms(all.filter(r => sameCourse(r.course, dept)));
       } catch (err) { console.error('Failed to load rooms', err); }
@@ -68,7 +69,7 @@ function App() {
     let off = false;
     (async () => {
       try {
-        const res = await fetch(`/api/slot-locks?resource_id=${encodeURIComponent(roomId)}&date=${encodeURIComponent(date)}`, { headers: authHeaders() });
+        const res = await fetch(window.apiUrl(`/api/slot-locks?resource_id=${encodeURIComponent(roomId)}&date=${encodeURIComponent(date)}`), { headers: authHeaders() });
         if (res.ok) { const list = await res.json(); if (Array.isArray(list) && !off) { const m = {}; list.forEach(o => { m[o.slot] = Boolean(o.locked); }); setLocks(m); } }
       } catch (err) { console.warn('Could not load slot locks, showing defaults', err); }
     })();
@@ -77,7 +78,7 @@ function App() {
 
   const updateStatus = async (bookingId, status) => {
     try {
-      const res = await fetch(`/api/bookings/${bookingId}/status`, { method: 'PATCH', headers: authHeaders(true), body: JSON.stringify({ status }) });
+      const res = await fetch(window.apiUrl(`/api/bookings/${bookingId}/status`), { method: 'PATCH', headers: authHeaders(true), body: JSON.stringify({ status }) });
       const data = await res.json();
       if (res.ok) { showAlert(`Request ${status} successfully!`, 'success'); loadFacultyBookings(); }
       else showAlert(data.message || 'Failed to update status.');
@@ -86,7 +87,7 @@ function App() {
 
   const saveLock = async (slot, locked) => {
     try {
-      const res = await fetch('/api/slot-locks', { method: 'PUT', headers: authHeaders(true), body: JSON.stringify({ resource_id: roomId, date, slot: slot.value, locked }) });
+      const res = await fetch(window.apiUrl('/api/slot-locks'), { method: 'PUT', headers: authHeaders(true), body: JSON.stringify({ resource_id: roomId, date, slot: slot.value, locked }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { showAlert(data.error || data.message || 'Could not update slot.'); return; }
       setLocks(l => ({ ...l, [slot.value]: locked }));
@@ -110,7 +111,7 @@ function App() {
   ];
 
   return (
-    <Shell portal="Faculty portal" toast={toast} tag={<span className="tag">Dept: {dept || '---'}</span>}>
+    <Shell portal="Faculty portal" toast={toast} notify={showAlert} tag={<span className="tag">Dept: {dept || '---'}</span>}>
       <div className="page-head"><h1>Department overview</h1><p>Review requests from your course and decide which slots are open to students.</p></div>
 
       <div className="metrics">

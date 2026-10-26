@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
+<script src="api-config.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -90,7 +91,7 @@ function App() {
 
   const loadBookings = useCallback(async () => {
     try {
-      const res = await fetch('/api/bookings/my-bookings', { headers: authHeaders() });
+      const res = await fetch(window.apiUrl('/api/bookings/my-bookings'), { headers: authHeaders() });
       const data = await res.json();
       if (!res.ok || !Array.isArray(data)) throw new Error(data.message || 'Could not load booking requests.');
       setBookings(data); setLoadErr(false);
@@ -99,7 +100,7 @@ function App() {
 
   const loadEvents = useCallback(async () => {
     try {
-      const res = await fetch('/api/events', { headers: authHeaders() });
+      const res = await fetch(window.apiUrl('/api/events'), { headers: authHeaders() });
       const data = await res.json();
       if (res.ok && Array.isArray(data)) setEvents(data);
     } catch (err) { console.error('Failed to load events feed', err); }
@@ -108,7 +109,7 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/resources', { headers: authHeaders() });
+        const res = await fetch(window.apiUrl('/api/resources'), { headers: authHeaders() });
         const data = await res.json();
         setResources(Array.isArray(data) ? data : []);
       } catch (err) { console.error('Failed to load resources', err); }
@@ -127,11 +128,11 @@ function App() {
     const q = `resource_id=${encodeURIComponent(resourceId)}&date=${encodeURIComponent(date)}`;
     (async () => {
       try {
-        const r = await fetch(`/api/slot-locks?${q}`, { headers: authHeaders() });
+        const r = await fetch(window.apiUrl(`/api/slot-locks?${q}`), { headers: authHeaders() });
         if (r.ok) { const o = await r.json(); if (Array.isArray(o) && !off) { const m = {}; o.forEach(x => { m[x.slot] = Boolean(x.locked); }); setLocks(m); } }
       } catch (err) { console.warn('Slot lock lookup unavailable, using defaults', err); }
       try {
-        const r = await fetch(`/api/bookings/availability?${q}`, { headers: authHeaders() });
+        const r = await fetch(window.apiUrl(`/api/bookings/availability?${q}`), { headers: authHeaders() });
         if (r.ok) { const d = await r.json(); if (Array.isArray(d) && !off) setServerBooked(d); }
       } catch (err) { console.warn('Availability lookup unavailable', err); }
     })();
@@ -184,7 +185,7 @@ function App() {
     const startDateTime = new Date(`${date}T${startTime}:00+05:30`);
     const endDateTime = new Date(`${date}T${endTime}:00+05:30`);
     try {
-      const res = await fetch('/api/bookings', {
+      const res = await fetch(window.apiUrl('/api/bookings'), {
         method: 'POST', headers: authHeaders(true),
         body: JSON.stringify({ 
           resource_id: resourceId, 
@@ -215,7 +216,7 @@ function App() {
   };
 
   return (
-    <Shell portal="Student portal" toast={toast}>
+    <Shell portal="Student portal" toast={toast} notify={showAlert}>
       <div className="page-head"><h1>Book a space</h1><p>Choose a room, pick an open slot, and send your request for approval.</p></div>
 
       <div className="cols">

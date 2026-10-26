@@ -70,6 +70,12 @@ The `POST /api/auth/register` endpoint:
 
 If email delivery is not configured, the system returns a 503 response explaining that SMTP settings are missing.
 
+#### Account settings
+
+Authenticated users can change their password after confirming their current password. Passwords are stored as bcrypt hashes; existing legacy plaintext passwords are upgraded to hashes at successful login.
+
+Users can also delete their account after confirming their current password. This permanently deletes their bookings and events they organized. Deleted accounts can no longer use existing access tokens.
+
 #### OTP verification
 
 The `POST /api/auth/verify-otp` endpoint verifies the user and marks the account as active using `isVerified: true`.
@@ -182,6 +188,8 @@ The browser-side JavaScript in `public/app.js` handles:
 
 The frontend stores the JWT in `localStorage` and routes students and faculty to different pages after login.
 
+When hosting the frontend on GitHub Pages and the API on Render, `public/api-config.js` must contain the public Render service origin. All frontend API requests use this shared configuration.
+
 ## Environment variables
 
 Create a `.env` file in the project root with values similar to the following:
@@ -230,6 +238,8 @@ The server will start on `http://localhost:3000` by default.
 - `POST /api/auth/register`
 - `POST /api/auth/verify-otp`
 - `POST /api/auth/login`
+- `POST /api/auth/change-password` (authenticated)
+- `POST /api/auth/delete-account` (authenticated)
 
 ### Resources
 

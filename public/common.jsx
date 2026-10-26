@@ -51,7 +51,7 @@ function Toast({ toast }) {
   return <div className={`toast toast--${toast.type}`} role="status"><Icon size={18} strokeWidth={1.5} />{toast.message}</div>;
 }
 
-function Shell({ portal, tag, toast, children }) {
+function Shell({ portal, tag, toast, notify, children }) {
   return (
     <>
       <header className="topbar"><div className="topbar-in">
@@ -61,7 +61,10 @@ function Shell({ portal, tag, toast, children }) {
           <button className="btn btn-quiet" onClick={handleLogout} aria-label="Logout"><I.LogOut size={16} strokeWidth={1.5} /><span className="hide-sm">Logout</span></button>
         </div>
       </div></header>
-      <main className="container">{children}</main>
+      <main className="container">
+        <AccountSettings notify={notify} />
+        {children}
+      </main>
       <Toast toast={toast} />
     </>
   );
@@ -69,6 +72,91 @@ function Shell({ portal, tag, toast, children }) {
 
 function Field({ label, className = '', children }) {
   return <label className={`field ${className}`}><span className="field-label">{label}</span>{children}</label>;
+}
+
+function AccountSettings({ notify }) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const changePassword = async event => {
+    event.preventDefault();
+    if (newPassword !== confirmPassword) {
+      notify('New password and confirmation do not match.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const response = await fetch(window.apiUrl('/api/auth/change-password'), {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const data = await response.json();
+      notify(data.message || (response.ok ? 'Password changed.' : 'Could not change password.'), response.ok ? 'success' : 'error');
+      if (response.ok) {
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } catch (err) {
+      console.error('Password change request failed:', err);
+      notify('Could not contact the server. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteAccount = async event => {
+    event.preventDefault();
+    if (!window.confirm('Delete your account and all bookings and events associated with it? This cannot be undone.')) return;
+
+    setBusy(true);
+    try {
+      const response = await fetch(window.apiUrl('/api/auth/delete-account'), {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify({ currentPassword: deletePassword })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        notify(data.message || 'Could not delete the account.');
+        return;
+      }
+
+      notify(data.message || 'Account deleted.', 'success');
+      setTimeout(handleLogout, 1200);
+    } catch (err) {
+      console.error('Account deletion request failed:', err);
+      notify('Could not contact the server. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <details className="panel account-settings">
+      <summary>Account settings</summary>
+      <div className="account-settings-content">
+        <form className="account-action" onSubmit={changePassword}>
+          <h2>Change password</h2>
+          <Field label="Current password"><input className="input" type="password" autoComplete="current-password" required value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} /></Field>
+          <Field label="New password"><input className="input" type="password" autoComplete="new-password" minLength="8" maxLength="128" required value={newPassword} onChange={event => setNewPassword(event.target.value)} /></Field>
+          <Field label="Confirm new password"><input className="input" type="password" autoComplete="new-password" minLength="8" maxLength="128" required value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} /></Field>
+          <button type="submit" className="btn btn-primary" disabled={busy}>Update password</button>
+        </form>
+        <form className="account-action account-action--danger" onSubmit={deleteAccount}>
+          <h2>Delete account</h2>
+          <p>This permanently deletes your account, bookings, and events you organized.</p>
+          <Field label="Current password"><input className="input" type="password" autoComplete="current-password" required value={deletePassword} onChange={event => setDeletePassword(event.target.value)} /></Field>
+          <button type="submit" className="btn btn-no" disabled={busy}>Delete my account</button>
+        </form>
+      </div>
+    </details>
+  );
 }
 
 function StatusBadge({ status }) {

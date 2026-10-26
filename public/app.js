@@ -1,5 +1,5 @@
 // Purpose: Handles login, registration, OTP verification, and role-based frontend navigation.
-const API_BASE = '/api';
+const API_BASE = `${window.API_BASE_URL}/api`;
 
 // UI Navigation Switcher
 function showSection(section) {

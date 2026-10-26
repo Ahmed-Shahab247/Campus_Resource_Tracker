@@ -6,10 +6,9 @@ const Booking = require('../models/Booking');
 const Resource = require('../models/Resource');
 const User = require('../models/User');
 const Event = require('../models/Event');
-const jwt = require('jsonwebtoken');
 const { randomUUID } = require('crypto');
+const { verifyToken } = require('../middleware/authMiddleware');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'smart_campus_secret_key_123';
 const CAMPUS_TIME_ZONE = 'Asia/Kolkata';
 
 function getCampusDate(date) {
@@ -79,20 +78,6 @@ async function withResourceBookingLock(resourceId, callback) {
     error.code = 'BOOKING_LOCK_TIMEOUT';
     throw error;
 }
-
-const verifyToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    if (!authHeader) return res.status(401).json({ message: 'Access denied. No token provided.' });
-
-    const token = authHeader.split(' ')[1];
-    try {
-        const verified = jwt.verify(token, JWT_SECRET);
-        req.user = verified;
-        next();
-    } catch (err) {
-        res.status(403).json({ message: 'Invalid or expired token.' });
-    }
-};
 
 // 1. GET LOGGED-IN USER'S BOOKINGS
 router.get('/my-bookings', verifyToken, async (req, res) => {
