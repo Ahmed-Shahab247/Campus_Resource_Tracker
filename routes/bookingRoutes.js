@@ -23,6 +23,22 @@ function getCampusDate(date) {
     return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
+function getCampusTime(date) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: CAMPUS_TIME_ZONE,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23'
+    }).formatToParts(date);
+    const part = type => parts.find(item => item.type === type).value;
+    return {
+        hour: Number(part('hour')),
+        minute: Number(part('minute')),
+        second: Number(part('second'))
+    };
+}
+
 async function withResourceBookingLock(resourceId, callback) {
     const token = randomUUID();
     const timeoutAt = Date.now() + 5000;
@@ -167,6 +183,22 @@ router.post('/', verifyToken, async (req, res) => {
             !Number.isFinite(parsedBookingDate.getTime()) ||
             parsedBookingDate.toISOString().slice(0, 10) !== bookingDate) {
             return res.status(400).json({ message: 'A valid booking date is required.' });
+        }
+        const startCampusTime = getCampusTime(startTimeDate);
+        const endCampusTime = getCampusTime(endTimeDate);
+        if (getCampusDate(startTimeDate) !== bookingDate ||
+            getCampusDate(endTimeDate) !== bookingDate ||
+            startCampusTime.hour < 8 ||
+            startCampusTime.hour >= 18 ||
+            startCampusTime.minute !== 0 ||
+            startCampusTime.second !== 0 ||
+            endCampusTime.hour !== startCampusTime.hour + 1 ||
+            endCampusTime.minute !== 0 ||
+            endCampusTime.second !== 0 ||
+            endTimeDate.getTime() - startTimeDate.getTime() !== 60 * 60 * 1000) {
+            return res.status(400).json({
+                message: 'Bookings must use one-hour slots between 8:00 AM and 6:00 PM campus time.'
+            });
         }
         if (bookingDate <= getCampusDate(new Date())) {
             return res.status(400).json({ message: 'Bookings can only be requested for a future date.' });

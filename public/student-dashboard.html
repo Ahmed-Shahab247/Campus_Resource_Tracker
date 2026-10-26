@@ -20,6 +20,24 @@
 <script type="text/babel" data-presets="react">
 if (!token || role !== 'student') window.location.href = '/';
 
+const CAMPUS_BLOCKS = {
+  'Block 1 - Heritage Block': ['Central Administration', 'Admissions Office', 'Placement Cell'],
+  'Block 2': ['Central Library and Information Centre'],
+  'Block 3': ['Department of Automobile Engineering'],
+  'Block 4': ['Department of Aeronautical Engineering'],
+  'Block 5': ['Department of Mechanical Engineering (Main labs and classrooms)'],
+  'Block 6 - New Mechanical Block': ['Core heavy machinery labs', 'Lathe workshops', 'Turbines'],
+  'Block 7': ['Department of Electrical & Electronics Engineering (EEE)'],
+  'Block 8': ['Department of Industrial Engineering & Management (IEM)'],
+  'Block 9': ['Department of Chemistry (General Engineering Sciences)'],
+  'Block 10': ['Department of Biotechnology'],
+  'Block 12': ['Dayananda Sagar Pre-University College (DSPC)'],
+  'Block 13': ['School of Arts, Science, and Commerce'],
+  'Block 14': ['Department of Architecture'],
+  'Block 16': ['MBA'],
+  'Block 17': ['MCA']
+};
+
 function campusDateString(value) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata',
@@ -120,8 +138,8 @@ function App() {
     return () => { off = true; };
   }, [resourceId, date, tick]);
 
-  const buildings = [...new Set(resources.map(r => r.building))];
-  const courses = building ? [...new Set(resources.filter(r => r.building === building).map(r => r.course))] : [];
+  const buildings = Object.keys(CAMPUS_BLOCKS);
+  const courses = building ? (CAMPUS_BLOCKS[building] || []) : [];
   const rooms = building && course ? resources.filter(r => r.building === building && r.course === course) : [];
 
   const ready = Boolean(resourceId && date);
@@ -163,8 +181,8 @@ function App() {
       return;
     }
     const [startTime, endTime] = slot.split(' - ');
-    const startDateTime = new Date(`${date}T${startTime}:00`);
-    const endDateTime = new Date(`${date}T${endTime}:00`);
+    const startDateTime = new Date(`${date}T${startTime}:00+05:30`);
+    const endDateTime = new Date(`${date}T${endTime}:00+05:30`);
     try {
       const res = await fetch('/api/bookings', {
         method: 'POST', headers: authHeaders(true),
@@ -268,7 +286,7 @@ function App() {
         <aside className="panel">
           <div className="panel-head"><h2>Booking guidelines</h2></div>
           <ul className="rules">
-            <li><I.Lock size={18} strokeWidth={1.5} /><span>Slots from 9:00 AM to 1:00 PM are locked by default. Only faculty can open them.</span></li>
+            <li><I.Lock size={18} strokeWidth={1.5} /><span>Bookings are hourly from 8:00 AM to 6:00 PM. For most blocks, slots before 1:00 PM are locked by default; Blocks 1 and 2 are always open.</span></li>
             <li><I.UserCheck size={18} strokeWidth={1.5} /><span>Bookings require faculty/admin approval.</span></li>
             <li><I.CalendarClock size={18} strokeWidth={1.5} /><span>Ensure requests are submitted at least 24 hours in advance.</span></li>
             <li><I.ListChecks size={18} strokeWidth={1.5} /><span>Check your status table for live approval updates.</span></li>

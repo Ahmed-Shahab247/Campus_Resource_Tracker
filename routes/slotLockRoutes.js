@@ -7,7 +7,18 @@ const User = require('../models/User');
 const { verifyToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
-const validSlots = ['09:00 - 11:00', '11:00 - 13:00', '14:00 - 16:00', '16:00 - 18:00'];
+const validSlots = [
+    '08:00 - 09:00',
+    '09:00 - 10:00',
+    '10:00 - 11:00',
+    '11:00 - 12:00',
+    '12:00 - 13:00',
+    '13:00 - 14:00',
+    '14:00 - 15:00',
+    '15:00 - 16:00',
+    '16:00 - 17:00',
+    '17:00 - 18:00'
+];
 
 function isValidDate(date) {
     if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
@@ -16,6 +27,7 @@ function isValidDate(date) {
 }
 
 function isSlotLockExempt(resource, date) {
+    if (['Block 1 - Heritage Block', 'Block 2'].includes(resource.building)) return true;
     if (resource.type?.toLowerCase().includes('auditorium')) return true;
     const [year, month, day] = date.split('-').map(Number);
     const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
@@ -111,7 +123,7 @@ router.put('/', verifyToken, async (req, res) => {
         if (!resource) return;
         if (locked && isSlotLockExempt(resource, date)) {
             return res.status(400).json({
-                message: 'Weekend and auditorium slots cannot be locked.'
+                message: 'This resource is always open and its slots cannot be locked.'
             });
         }
 

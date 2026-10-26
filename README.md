@@ -109,7 +109,7 @@ The resource model stores information such as:
 - capacity
 - availability status
 
-The `GET /api/resources/` route lists available resources. If the collection is empty, it auto-seeds realistic DSCE campus resources such as MCA, MBA, CSE, and general-use rooms.
+The `GET /api/resources/` route lists available resources and ensures placeholder rooms for the configured campus blocks and their listed departments and facilities exist, using sample room numbers.
 
 ### 5. Booking workflow
 
@@ -146,8 +146,9 @@ Rules include:
 
 - only faculty can update slot locks
 - the faculty must belong to the matching department
-- weekends and auditorium-based resources are exempt from locking
-- valid slots are limited to a predefined set like `09:00 - 11:00`, `11:00 - 13:00`, and others
+- weekends, auditorium-based resources, Block 1, and Block 2 are exempt from locking
+- bookings use one-hour slots from `08:00 - 09:00` through `17:00 - 18:00` in campus time
+- weekday slots before 1:00 PM are locked by default except for Block 1 and Block 2
 
 This helps prevent student booking attempts during blocked teaching or maintenance periods.
 

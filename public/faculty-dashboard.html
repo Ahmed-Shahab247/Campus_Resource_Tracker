@@ -119,7 +119,7 @@ function App() {
       </div>
 
       <section className="panel">
-        <div className="panel-head"><h2>Manage slot locks</h2><p>Slots before 1:00 PM are locked for students by default on weekdays. Weekend slots and auditorium slots are always open. Select a locked slot to open it (you'll be asked to confirm). Select an open slot to lock it again instantly.</p></div>
+        <div className="panel-head"><h2>Manage slot locks</h2><p>Hourly slots run from 8:00 AM to 6:00 PM. Slots before 1:00 PM are locked for students by default on weekdays. Weekend, auditorium, Block 1, and Block 2 slots are always open. Select a locked slot to open it (you'll be asked to confirm). Select an open slot to lock it again instantly.</p></div>
         <div className="form" style={{ marginBottom: 24 }}>
           <Field label="Room / facility (your course)">
             <select className="input" value={roomId} onChange={e => setRoomId(e.target.value)}>
