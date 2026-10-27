@@ -9,6 +9,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="theme.css">
     <script src="api-config.js"></script>
+    <script>
+        const savedRole = window.sessionRole();
+        if (savedRole === 'faculty') {
+            window.location.replace('./faculty-dashboard.html');
+        } else if (savedRole === 'student') {
+            window.location.replace('./student-dashboard.html');
+        }
+    </script>
 </head>
 <body>
     <header class="topbar"><div class="topbar-in">

@@ -103,15 +103,15 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         const data = await res.json();
 
         if (res.ok) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('role', data.role); // 'student' or 'faculty'
-            localStorage.setItem('userEmail', email);
+            sessionStorage.setItem('token', data.token);
+            sessionStorage.setItem('role', data.role); // 'student' or 'faculty'
+            sessionStorage.setItem('userEmail', email);
 
             // Redirect based on institutional role
             if (data.role === 'faculty') {
-                window.location.href = '/faculty-dashboard.html';
+                window.location.href = './faculty-dashboard.html';
             } else {
-                window.location.href = '/student-dashboard.html';
+                window.location.href = './student-dashboard.html';
             }
         } else {
             showAlert(data.message || 'Invalid login credentials or unverified account.');

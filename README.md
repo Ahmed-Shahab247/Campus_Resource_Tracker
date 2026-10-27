@@ -165,8 +165,9 @@ The system also supports event records and departmental visibility.
 The `GET /api/events/` route returns all visible events for the logged-in user:
 
 - global events are shown to everyone
-- departmental events are shown only to matching department users
-- general users can see all events
+- departmental events are shown only to users in the matching department
+
+Faculty can post a class or event announcement with `POST /api/events/`. Posts include a title/purpose, optional details, date, start and end times, and an audience. Departmental posts are limited to the faculty member's department; global posts are visible to all users. These announcements do not reserve a room. Existing booking-based events continue to be published when a faculty member approves the booking.
 
 This allows campus announcements and event schedules to be filtered appropriately.
 
@@ -186,7 +187,7 @@ The browser-side JavaScript in `public/app.js` handles:
 - login
 - redirecting users to the correct dashboard based on their role
 
-The frontend stores the JWT in `localStorage` and routes students and faculty to different pages after login.
+The frontend stores the JWT in per-tab `sessionStorage` and routes students and faculty to the matching dashboard based on their role. This keeps simultaneous student and faculty sessions in separate browser tabs from overwriting each other, while preserving the session when a tab is refreshed.
 
 When hosting the frontend on GitHub Pages and the API on Render, `public/api-config.js` must contain the public Render service origin. All frontend API requests use this shared configuration.
 

@@ -19,7 +19,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.0/babel.min.js"></script>
 <script type="text/babel" data-presets="react" src="common.jsx"></script>
 <script type="text/babel" data-presets="react">
-if (!token || role !== 'student') window.location.href = '/';
+const sessionRole = window.sessionRole();
+if (!sessionRole) window.location.replace('./');
+else if (sessionRole !== 'student') window.location.replace('./faculty-dashboard.html');
 
 const CAMPUS_BLOCKS = {
   'Block 1 - Heritage Block': ['Central Administration', 'Admissions Office', 'Placement Cell'],
@@ -316,11 +318,11 @@ function App() {
             </table>}
       </section>
 
-      {/* Approved Campus & Department Events Feed Section */}
+      {/* Campus & Department Events Feed Section */}
       <section className="panel" style={{ marginTop: '2rem' }}>
-        <div className="panel-head"><h2>📅 Approved Campus Events Feed</h2><p>Official events approved for your department and campus.</p></div>
+        <div className="panel-head"><h2>📅 Campus &amp; Department Events</h2><p>Classes, announcements, and events for your department and campus.</p></div>
         {events.length === 0 ? (
-          <p className="muted" style={{ padding: '1rem 0' }}>No approved campus events available right now.</p>
+          <p className="muted" style={{ padding: '1rem 0' }}>No events or announcements available right now.</p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
             {events.map(ev => (
@@ -331,7 +333,7 @@ function App() {
                 </div>
                 <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.88rem', color: '#555', lineHeight: '1.4' }}>{ev.description}</p>
                 <div style={{ fontSize: '0.78rem', color: '#7f8c8d', borderTop: '1px solid #f1f5f9', paddingTop: '0.5rem' }}>
-                  📍 <strong>{ev.resource ? `${ev.resource.building} - ${ev.resource.roomNumber}` : 'N/A'}</strong><br />
+                  📍 <strong>{ev.resource ? `${ev.resource.building} - ${ev.resource.roomNumber}` : 'Faculty announcement'}</strong><br />
                   🕒 <strong>{new Date(ev.date).toLocaleDateString()} ({ev.timeSlot || 'Scheduled'})</strong><br />
                   🏛️ Dept: {ev.department}
                 </div>

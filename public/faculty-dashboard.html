@@ -19,10 +19,22 @@
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.0/babel.min.js"></script>
 <script type="text/babel" data-presets="react" src="common.jsx"></script>
 <script type="text/babel" data-presets="react">
-if (!token || role !== 'faculty') window.location.href = '/';
+const sessionRole = window.sessionRole();
+if (!sessionRole) window.location.replace('./');
+else if (sessionRole !== 'faculty') window.location.replace('./student-dashboard.html');
 
 // Same course check used for both the queue and the room list
 const sameCourse = (a, b) => Boolean(a) && Boolean(b) && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+const campusDateString = (value = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(value);
+  const part = type => parts.find(item => item.type === type).value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+};
 
 function App() {
   const [toast, showAlert] = useToast();
@@ -33,6 +45,15 @@ function App() {
   const [date, setDate] = useState('');
   const [locks, setLocks] = useState({});
   const [confirm, setConfirm] = useState(null);
+  const [statusConfirmation, setStatusConfirmation] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [eventPurpose, setEventPurpose] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [eventStartTime, setEventStartTime] = useState('');
+  const [eventEndTime, setEventEndTime] = useState('');
+  const [eventScope, setEventScope] = useState('departmental');
+  const [postingEvent, setPostingEvent] = useState(false);
 
   const loadFacultyBookings = useCallback(async () => {
     try {
@@ -50,7 +71,18 @@ function App() {
     } catch (err) { console.error('Error loading faculty bookings:', err); showAlert('Failed to connect to server.'); }
   }, []);
 
-  useEffect(() => { loadFacultyBookings(); }, []);
+  useEffect(() => {
+    loadFacultyBookings();
+    const timer = setInterval(loadFacultyBookings, 15000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') loadFacultyBookings();
+    };
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [loadFacultyBookings]);
 
   useEffect(() => {
     if (!dept) return;
@@ -77,12 +109,18 @@ function App() {
   }, [roomId, date]);
 
   const updateStatus = async (bookingId, status) => {
+    setUpdatingStatus(true);
     try {
       const res = await fetch(window.apiUrl(`/api/bookings/${bookingId}/status`), { method: 'PATCH', headers: authHeaders(true), body: JSON.stringify({ status }) });
       const data = await res.json();
-      if (res.ok) { showAlert(`Request ${status} successfully!`, 'success'); loadFacultyBookings(); }
+      if (res.ok) { showAlert(`Request ${status} successfully!`, 'success'); setStatusConfirmation(null); loadFacultyBookings(); }
       else showAlert(data.message || 'Failed to update status.');
-    } catch (err) { showAlert('Server communication error.'); }
+    } catch (err) {
+      console.error('Error updating booking status:', err);
+      showAlert('Server communication error.');
+    } finally {
+      setUpdatingStatus(false);
+    }
   };
 
   const saveLock = async (slot, locked) => {
@@ -93,6 +131,42 @@ function App() {
       setLocks(l => ({ ...l, [slot.value]: locked }));
       showAlert(locked ? 'Slot locked.' : 'Slot opened for students.', 'success');
     } catch (err) { showAlert('Server communication error.'); }
+  };
+
+  const postEvent = async e => {
+    e.preventDefault();
+    setPostingEvent(true);
+    try {
+      const res = await fetch(window.apiUrl('/api/events'), {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify({
+          title: eventPurpose,
+          description: eventDescription,
+          date: eventDate,
+          startTime: eventStartTime,
+          endTime: eventEndTime,
+          scope: eventScope
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showAlert(data.message || 'Could not post the event.');
+        return;
+      }
+      showAlert('Event posted successfully.', 'success');
+      setEventPurpose('');
+      setEventDescription('');
+      setEventDate('');
+      setEventStartTime('');
+      setEventEndTime('');
+      setEventScope('departmental');
+    } catch (err) {
+      console.error('Error posting faculty event:', err);
+      showAlert('Server communication error.');
+    } finally {
+      setPostingEvent(false);
+    }
   };
 
   const selectedRoom = rooms.find(room => room._id === roomId);
@@ -120,6 +194,28 @@ function App() {
       </div>
 
       <section className="panel">
+        <div className="panel-head"><h2>Post a class or event</h2><p>Share an announcement with your course, or make it visible to students across campus. This does not reserve a room.</p></div>
+        <form className="form" onSubmit={postEvent}>
+          <Field label="Purpose / title">
+            <input className="input" type="text" value={eventPurpose} onChange={e => setEventPurpose(e.target.value)} maxLength="160" placeholder="e.g., Class: Data Structures" required />
+          </Field>
+          <Field label="Details (optional)">
+            <textarea className="input" rows="2" value={eventDescription} onChange={e => setEventDescription(e.target.value)} maxLength="2000" placeholder="Additional information for students" style={{ resize: 'vertical' }} />
+          </Field>
+          <Field label="Date"><input className="input" type="date" min={campusDateString()} value={eventDate} onChange={e => setEventDate(e.target.value)} required /></Field>
+          <Field label="Start time"><input className="input" type="time" value={eventStartTime} onChange={e => setEventStartTime(e.target.value)} required /></Field>
+          <Field label="End time"><input className="input" type="time" value={eventEndTime} onChange={e => setEventEndTime(e.target.value)} required /></Field>
+          <Field label="Audience">
+            <select className="input" value={eventScope} onChange={e => setEventScope(e.target.value)}>
+              <option value="departmental">My course ({dept || 'your department'})</option>
+              <option value="global">All campus users</option>
+            </select>
+          </Field>
+          <div className="span-2"><button type="submit" className="btn btn-primary" disabled={postingEvent}>{postingEvent ? 'Posting...' : 'Post event'}</button></div>
+        </form>
+      </section>
+
+      <section className="panel">
         <div className="panel-head"><h2>Manage slot locks</h2><p>Hourly slots run from 8:00 AM to 6:00 PM. Slots before 1:00 PM are locked for students by default on weekdays. Weekend, auditorium, Block 1, and Block 2 slots are always open. Select a locked slot to open it (you'll be asked to confirm). Select an open slot to lock it again instantly.</p></div>
         <div className="form" style={{ marginBottom: 24 }}>
           <Field label="Room / facility (your course)">
@@ -127,7 +223,7 @@ function App() {
               <option value="">Select room</option>{rooms.map(r => <option key={r._id} value={r._id}>{`${r.building} - ${r.roomNumber}`}</option>)}
             </select>
           </Field>
-          <Field label="Date"><input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></Field>
+          <Field label="Date"><input className="input" type="date" min={campusDateString()} value={date} onChange={e => setDate(e.target.value)} /></Field>
         </div>
         <SlotGrid items={items} onPick={toggle} />
         <Legend items={[['open', 'Open to students'], ['locked', 'Locked']]} />
@@ -147,8 +243,8 @@ function App() {
                   <td data-label="Status"><StatusBadge status={b.status} /></td>
                   <td data-label="Action">{b.status === 'PENDING_FACULTY'
                     ? <div className="btn-row">
-                        <button className="btn btn-sm btn-ok" onClick={() => updateStatus(b._id, 'approved')}><I.Check size={14} strokeWidth={1.75} />Approve</button>
-                        <button className="btn btn-sm btn-no" onClick={() => updateStatus(b._id, 'rejected')}><I.X size={14} strokeWidth={1.75} />Reject</button>
+                        <button className="btn btn-sm btn-ok" onClick={() => setStatusConfirmation({ booking: b, status: 'approved' })}><I.Check size={14} strokeWidth={1.75} />Approve</button>
+                        <button className="btn btn-sm btn-no" onClick={() => setStatusConfirmation({ booking: b, status: 'rejected' })}><I.X size={14} strokeWidth={1.75} />Reject</button>
                       </div>
                     : <span className="muted">Processed</span>}</td>
                 </tr>))}</tbody>
@@ -164,6 +260,27 @@ function App() {
             <div className="btn-row">
               <button className="btn btn-quiet" onClick={() => setConfirm(null)}>Cancel</button>
               <button className="btn btn-primary" autoFocus onClick={() => { const s = confirm; setConfirm(null); saveLock(s, false); }}>Yes, open it</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {statusConfirmation && (
+        <div className="backdrop" onClick={() => !updatingStatus && setStatusConfirmation(null)} onKeyDown={e => e.key === 'Escape' && !updatingStatus && setStatusConfirmation(null)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="status-confirm-title" onClick={e => e.stopPropagation()}>
+            {statusConfirmation.status === 'approved'
+              ? <I.CheckCircle2 size={24} strokeWidth={1.5} />
+              : <I.XCircle size={24} strokeWidth={1.5} />}
+            <h3 id="status-confirm-title">Are you sure?</h3>
+            <p>{`Are you sure you want to ${statusConfirmation.status} this booking request from ${statusConfirmation.booking.user_id ? statusConfirmation.booking.user_id.email : 'this student'}?`}</p>
+            <div className="btn-row">
+              <button className="btn btn-quiet" disabled={updatingStatus} onClick={() => setStatusConfirmation(null)}>Cancel</button>
+              <button
+                className={`btn ${statusConfirmation.status === 'approved' ? 'btn-ok' : 'btn-no'}`}
+                disabled={updatingStatus}
+                onClick={() => updateStatus(statusConfirmation.booking._id, statusConfirmation.status)}
+              >
+                {updatingStatus ? 'Updating...' : `Yes, ${statusConfirmation.status}`}
+              </button>
             </div>
           </div>
         </div>

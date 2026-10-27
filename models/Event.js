@@ -23,13 +23,11 @@ const eventSchema = new mongoose.Schema({
     }, // e.g. 'MCA', 'CSE' matched from resource course
     resource: { 
         type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Resource', 
-        required: true 
+        ref: 'Resource'
     },
     booking: { 
         type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Booking', 
-        required: true 
+        ref: 'Booking'
     },
     organizer: { 
         type: mongoose.Schema.Types.ObjectId, 

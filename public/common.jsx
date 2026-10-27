@@ -3,11 +3,16 @@
 const { useState, useEffect, useCallback, useRef } = React;
 const I = LucideReact;
 
-const token = localStorage.getItem('token');
-const role = localStorage.getItem('role');
-const userEmail = localStorage.getItem('userEmail');
+const token = sessionStorage.getItem('token');
+const role = window.sessionRole();
+const userEmail = sessionStorage.getItem('userEmail');
 const authHeaders = json => ({ ...(json ? { 'Content-Type': 'application/json' } : {}), Authorization: `Bearer ${token}` });
-function handleLogout() { localStorage.clear(); window.location.href = '/'; }
+function handleLogout() {
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('role');
+  sessionStorage.removeItem('userEmail');
+  window.location.href = './';
+}
 
 const SLOTS = [
   { value: '08:00 - 09:00', label: '08:00 AM - 09:00 AM' },

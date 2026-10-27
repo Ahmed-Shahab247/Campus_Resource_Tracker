@@ -7,6 +7,7 @@ const User = require('../models/User');
 const { verifyToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+const CAMPUS_TIME_ZONE = 'Asia/Kolkata';
 const validSlots = [
     '08:00 - 09:00',
     '09:00 - 10:00',
@@ -19,6 +20,17 @@ const validSlots = [
     '16:00 - 17:00',
     '17:00 - 18:00'
 ];
+
+function getCampusDate(date) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: CAMPUS_TIME_ZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).formatToParts(date);
+    const part = type => parts.find(item => item.type === type).value;
+    return `${part('year')}-${part('month')}-${part('day')}`;
+}
 
 function isValidDate(date) {
     if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
@@ -111,6 +123,9 @@ router.put('/', verifyToken, async (req, res) => {
         const { resource_id: resourceId, date, slot, locked } = req.body;
         if (!isValidDate(date)) {
             return res.status(400).json({ message: 'A valid date in YYYY-MM-DD format is required.' });
+        }
+        if (date < getCampusDate(new Date())) {
+            return res.status(400).json({ message: 'Slot lock date cannot be in the past.' });
         }
         if (!validSlots.includes(slot)) {
             return res.status(400).json({ message: 'A valid slot is required.' });
